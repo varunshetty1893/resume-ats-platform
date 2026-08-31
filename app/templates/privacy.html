@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Zentra — Privacy Policy{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-6 lg:px-10 py-14">
+  <h1 class="text-2xl font-extrabold tracking-tight mb-2">Privacy Policy</h1>
+  <p class="text-sm text-slate-400 mb-8">Last updated: {{ now.strftime('%B %Y') if now else '' }}</p>
+
+  <div class="space-y-6 text-sm text-slate-600 leading-relaxed">
+    <p>This is a placeholder policy for the platform's current build stage — replace it with your finalised privacy policy before taking real users.</p>
+
+    <div>
+      <h2 class="font-semibold text-ink mb-1">What we collect</h2>
+      <p>Account details (name, email, password hash), resume content you upload or paste, and job application activity (which jobs you applied to, and your match scores).</p>
+    </div>
+    <div>
+      <h2 class="font-semibold text-ink mb-1">How it's used</h2>
+      <p>Your resume and profile data are used to compute ATS scores and job matches, and are shared with a recruiter only when you apply to their listing.</p>
+    </div>
+    <div>
+      <h2 class="font-semibold text-ink mb-1">Data you control</h2>
+      <p>You can update your profile at any time from Settings. Contact support to request deletion of your account and associated data.</p>
+    </div>
+    <div>
+      <h2 class="font-semibold text-ink mb-1">Third parties</h2>
+      <p>We don't sell your data. Resume text is processed locally by Zentra's own matching engine — it isn't sent to third-party services.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

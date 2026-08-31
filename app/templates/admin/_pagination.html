@@ -1,0 +1,92 @@
+{# Reusable Server-Side Pagination Bar for Zentra Admin #}
+
+{% macro render_pagination(pagination, endpoint, item_name='records') %}
+{% if pagination and pagination.total > 0 %}
+<div class="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white">
+  
+  <!-- Range and Sizing Info -->
+  <div class="flex items-center gap-4 text-xs text-slate-500">
+    <div>
+      {% set start_idx = (pagination.page - 1) * pagination.per_page + 1 %}
+      {% set end_idx = [pagination.page * pagination.per_page, pagination.total]|min %}
+      Showing <span class="font-bold text-ink">{{ start_idx }}–{{ end_idx }}</span> of <span class="font-bold text-ink">{{ pagination.total }}</span> {{ item_name }}
+    </div>
+
+    <!-- Per-Page Selector -->
+    <div class="flex items-center gap-1.5 pl-3 border-l border-slate-200">
+      <span class="text-slate-400">Per page:</span>
+      {% for size in [25, 50, 100] %}
+        {% set args = request.args.copy() %}
+        {% set _ = args.setlist('per_page', [size|string]) %}
+        {% set _ = args.setlist('page', ['1']) %}
+        <a href="{{ url_for(endpoint, **args) }}"
+           class="px-2 py-0.5 rounded text-[11px] font-semibold transition-colors {{ 'bg-slate-900 text-white' if pagination.per_page == size else 'text-slate-600 hover:bg-slate-100' }}">
+          {{ size }}
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Page Navigation Controls -->
+  {% if pagination.pages > 1 %}
+  <nav class="flex items-center gap-1.5" aria-label="Pagination">
+    <!-- Previous Button -->
+    {% if pagination.has_prev %}
+      {% set prev_args = request.args.copy() %}
+      {% set _ = prev_args.setlist('page', [pagination.prev_num|string]) %}
+      <a href="{{ url_for(endpoint, **prev_args) }}"
+         class="inline-flex items-center gap-1 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs">
+        <i class="bi bi-chevron-left text-[10px]"></i> Previous
+      </a>
+    {% else %}
+      <span class="inline-flex items-center gap-1 border border-slate-100 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 cursor-not-allowed bg-slate-50/50">
+        <i class="bi bi-chevron-left text-[10px]"></i> Previous
+      </span>
+    {% endif %}
+
+    <!-- Numbered Page Links with Windowing -->
+    <div class="hidden sm:flex items-center gap-1">
+      {% for p in pagination.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
+        {% if p %}
+          {% if p == pagination.page %}
+            <span class="w-8 h-8 rounded-xl bg-ink text-white flex items-center justify-center font-bold text-xs shadow-xs">
+              {{ p }}
+            </span>
+          {% else %}
+            {% set p_args = request.args.copy() %}
+            {% set _ = p_args.setlist('page', [p|string]) %}
+            <a href="{{ url_for(endpoint, **p_args) }}"
+               class="w-8 h-8 rounded-xl border border-slate-200 text-slate-700 flex items-center justify-center font-semibold text-xs hover:bg-slate-50 transition-colors">
+              {{ p }}
+            </a>
+          {% endif %}
+        {% else %}
+          <span class="w-6 text-center text-slate-400 text-xs select-none font-bold">…</span>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <!-- Mobile Current Page Display -->
+    <span class="sm:hidden text-xs text-slate-500 font-medium px-2">
+      {{ pagination.page }} / {{ pagination.pages }}
+    </span>
+
+    <!-- Next Button -->
+    {% if pagination.has_next %}
+      {% set next_args = request.args.copy() %}
+      {% set _ = next_args.setlist('page', [pagination.next_num|string]) %}
+      <a href="{{ url_for(endpoint, **next_args) }}"
+         class="inline-flex items-center gap-1 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs">
+        Next <i class="bi bi-chevron-right text-[10px]"></i>
+      </a>
+    {% else %}
+      <span class="inline-flex items-center gap-1 border border-slate-100 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 cursor-not-allowed bg-slate-50/50">
+        Next <i class="bi bi-chevron-right text-[10px]"></i>
+      </span>
+    {% endif %}
+  </nav>
+  {% endif %}
+
+</div>
+{% endif %}
+{% endmacro %}

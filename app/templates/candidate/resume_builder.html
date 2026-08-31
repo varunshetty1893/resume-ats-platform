@@ -1,0 +1,1189 @@
+{% extends "base.html" %}
+{% set active_nav = 'profile' %}
+{% block title %}Zentra — AI Resume Builder{% endblock %}
+
+{% block extra_head %}
+<style>
+  .builder-grid {
+    display: grid;
+    grid-template-columns: 240px 1fr 440px;
+    gap: 1.5rem;
+    height: calc(100vh - 4.5rem);
+  }
+  @media (max-width: 1280px) {
+    .builder-grid {
+      grid-template-columns: 220px 1fr;
+    }
+  }
+  @media (max-width: 900px) {
+    .builder-grid {
+      display: flex;
+      flex-direction: column;
+      height: auto;
+    }
+  }
+  .preview-paper {
+    width: 100%;
+    min-height: 560px;
+    background: #ffffff;
+    box-shadow: 0 4px 20px -2px rgba(11, 15, 25, 0.08);
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  .preview-modern { border-top: 5px solid #4338CA; }
+  .preview-professional { border-top: 5px solid #1E293B; }
+  .preview-minimal { border-top: 5px solid #111827; }
+  .preview-executive { border-top: 5px solid #0F766E; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bg-slate-50 min-h-screen border-b border-slate-200/80">
+  <!-- TOP CONTROLS BAR -->
+  <header class="bg-white border-b border-slate-200 px-6 py-3 sticky top-16 z-30 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-4 flex-1 min-w-[280px]">
+      <a href="{{ url_for('candidate.my_resumes') }}" title="Back to Resumes" class="w-8 h-8 rounded-lg border border-slate-200 text-slate-600 hover:bg-lavender flex items-center justify-center text-xs transition-colors shrink-0">
+        <i class="bi bi-arrow-left"></i>
+      </a>
+      <div class="flex items-center gap-2 flex-1">
+        <input type="text" id="builder-resume-name" value="{{ resume_obj.name if resume_obj else 'My Resume' }}" placeholder="Resume Name (e.g. Backend Engineer Resume)" class="font-bold text-ink text-sm sm:text-base bg-transparent hover:bg-slate-50 focus:bg-white px-2 py-1 rounded-lg border border-transparent focus:border-indigo-300 focus:outline-none transition-all w-full max-w-sm" oninput="markUnsaved()">
+        <input type="hidden" id="builder-resume-id" value="{{ resume_obj.id if resume_obj else '' }}">
+      </div>
+    </div>
+
+    <!-- Optimization target & Actions -->
+    <div class="flex items-center flex-wrap gap-2.5">
+      <!-- Target Job Selector -->
+      <div class="flex items-center gap-1.5 bg-lavender/60 border border-slate-200/80 rounded-xl px-2.5 py-1">
+        <i class="bi bi-bullseye text-indigo-600 text-xs"></i>
+        <select id="builder-target-job" onchange="handleJobTargetChange()" class="bg-transparent text-xs font-semibold text-ink border-0 focus:ring-0 focus:outline-none cursor-pointer">
+          <option value="">-- General ATS Evaluation --</option>
+          {% for j in active_jobs %}
+          <option value="{{ j.id }}" {% if target_job and target_job.id == j.id %}selected{% endif %}>
+            {{ j.title }} ({{ j.recruiter_profile.company_name if j.recruiter_profile else 'Company' }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Template Selector -->
+      <select id="builder-template" onchange="handleTemplateChange()" class="bg-lavender/60 border border-slate-200/80 rounded-xl px-3 py-1.5 text-xs font-semibold text-ink focus:outline-none cursor-pointer">
+        <option value="modern" {% if initial_data.template == 'modern' %}selected{% endif %}>Modern Template</option>
+        <option value="professional" {% if initial_data.template == 'professional' %}selected{% endif %}>Professional Template</option>
+        <option value="minimal" {% if initial_data.template == 'minimal' %}selected{% endif %}>Minimal Template</option>
+        <option value="executive" {% if initial_data.template == 'executive' %}selected{% endif %}>Executive Template</option>
+      </select>
+
+      <!-- Save Status Indicator -->
+      <span id="save-status-text" class="text-xs font-semibold text-slate-400 px-1 hidden sm:inline">Saved</span>
+
+      <!-- Save Button -->
+      <button type="button" onclick="saveResume()" id="btn-save-resume" class="bg-ink hover:bg-slate-800 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-2xs">
+        <i class="bi bi-floppy"></i> Save
+      </button>
+
+      <!-- Export PDF Button -->
+      <button type="button" onclick="downloadCurrentPdf()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold px-4 py-2 rounded-xl transition-colors inline-flex items-center gap-1.5 cursor-pointer">
+        <i class="bi bi-download"></i> PDF
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN 3-PANE WORKSPACE -->
+  <main class="max-w-[1700px] mx-auto p-4 sm:p-6">
+    <div class="builder-grid">
+      <!-- 1. LEFT PANE: SECTION NAVIGATION -->
+      <aside class="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs overflow-y-auto hidden md:block">
+        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3 px-2">Sections</p>
+        <nav class="space-y-1">
+          <button type="button" onclick="scrollToSection('sec-personal')" class="w-full text-left flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-ink hover:bg-lavender transition-colors">
+            <span class="flex items-center gap-2"><i class="bi bi-person text-indigo-600"></i> Personal Info</span>
+            <i id="nav-check-personal" class="bi bi-check-circle-fill text-emerald-500 hidden"></i>
+          </button>
+          <button type="button" onclick="scrollToSection('sec-summary')" class="w-full text-left flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-ink hover:bg-lavender transition-colors">
+            <span class="flex items-center gap-2"><i class="bi bi-card-text text-indigo-600"></i> Summary</span>
+            <i id="nav-check-summary" class="bi bi-check-circle-fill text-emerald-500 hidden"></i>
+          </button>
+          <button type="button" onclick="scrollToSection('sec-experience')" class="w-full text-left flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-ink hover:bg-lavender transition-colors">
+            <span class="flex items-center gap-2"><i class="bi bi-briefcase text-indigo-600"></i> Experience</span>
+            <i id="nav-check-experience" class="bi bi-check-circle-fill text-emerald-500 hidden"></i>
+          </button>
+          <button type="button" onclick="scrollToSection('sec-education')" class="w-full text-left flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-ink hover:bg-lavender transition-colors">
+            <span class="flex items-center gap-2"><i class="bi bi-mortarboard text-indigo-600"></i> Education</span>
+            <i id="nav-check-education" class="bi bi-check-circle-fill text-emerald-500 hidden"></i>
+          </button>
+          <button type="button" onclick="scrollToSection('sec-skills')" class="w-full text-left flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-ink hover:bg-lavender transition-colors">
+            <span class="flex items-center gap-2"><i class="bi bi-cpu text-indigo-600"></i> Skills (Categorized)</span>
+            <i id="nav-check-skills" class="bi bi-check-circle-fill text-emerald-500 hidden"></i>
+          </button>
+          <button type="button" onclick="scrollToSection('sec-projects')" class="w-full text-left flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-ink hover:bg-lavender transition-colors">
+            <span class="flex items-center gap-2"><i class="bi bi-code-slash text-indigo-600"></i> Projects</span>
+            <i id="nav-check-projects" class="bi bi-check-circle-fill text-emerald-500 hidden"></i>
+          </button>
+          <button type="button" onclick="scrollToSection('sec-certifications')" class="w-full text-left flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-ink hover:bg-lavender transition-colors">
+            <span class="flex items-center gap-2"><i class="bi bi-award text-indigo-600"></i> Certifications</span>
+            <i id="nav-check-certifications" class="bi bi-check-circle-fill text-emerald-500 hidden"></i>
+          </button>
+          <button type="button" onclick="scrollToSection('sec-achievements')" class="w-full text-left flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-ink hover:bg-lavender transition-colors">
+            <span class="flex items-center gap-2"><i class="bi bi-trophy text-indigo-600"></i> Achievements</span>
+            <i id="nav-check-achievements" class="bi bi-check-circle-fill text-emerald-500 hidden"></i>
+          </button>
+        </nav>
+
+        <div class="border-t border-slate-100 pt-4 mt-6">
+          <div class="flex items-center justify-between text-xs font-bold text-slate-500 mb-1.5">
+            <span>Profile Readiness</span>
+            <span id="readiness-pct-text" class="text-indigo-600 font-extrabold">0%</span>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+            <div id="readiness-progress-bar" class="bg-indigo-600 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 2. CENTER PANE: SECTION EDITORS -->
+      <section class="space-y-6 overflow-y-auto pr-1 pb-20" id="editor-container">
+        <!-- 1. PERSONAL INFORMATION -->
+        <div id="sec-personal" class="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h2 class="font-bold text-sm text-ink flex items-center gap-2">
+              <i class="bi bi-person-fill text-indigo-600"></i> Personal Information
+            </h2>
+            <span class="text-[11px] text-slate-400">Core Contact Details</span>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">Full Name *</label>
+              <input type="text" id="p-fullname" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors" placeholder="e.g. Jordan Lee" oninput="handleFieldChange()">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">Professional Title *</label>
+              <input type="text" id="p-title" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors" placeholder="e.g. Senior Backend Engineer" oninput="handleFieldChange()">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">Email *</label>
+              <input type="email" id="p-email" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors" placeholder="jordan@example.com" oninput="handleFieldChange()">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">Phone Number</label>
+              <input type="tel" id="p-phone" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors" placeholder="+1 (555) 019-2834" oninput="handleFieldChange()">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">Location / City</label>
+              <input type="text" id="p-location" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors" placeholder="San Francisco, CA / Remote" oninput="handleFieldChange()">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">LinkedIn Profile</label>
+              <input type="url" id="p-linkedin" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors" placeholder="linkedin.com/in/jordanlee" oninput="handleFieldChange()">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">GitHub Profile</label>
+              <input type="url" id="p-github" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors" placeholder="github.com/jordanlee" oninput="handleFieldChange()">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">Portfolio / Website</label>
+              <input type="url" id="p-portfolio" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors" placeholder="jordanlee.dev" oninput="handleFieldChange()">
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. PROFESSIONAL SUMMARY -->
+        <div id="sec-summary" class="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h2 class="font-bold text-sm text-ink flex items-center gap-2">
+              <i class="bi bi-card-text text-indigo-600"></i> Professional Summary
+            </h2>
+            <span class="text-[11px] text-slate-400">2-4 impactful sentences</span>
+          </div>
+          <textarea id="p-summary" rows="3" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors resize-none" placeholder="Results-driven Backend Engineer with 5+ years specializing in Python, Flask, and distributed PostgreSQL databases..." oninput="handleFieldChange()"></textarea>
+        </div>
+
+        <!-- 3. EXPERIENCE EDITOR -->
+        <div id="sec-experience" class="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h2 class="font-bold text-sm text-ink flex items-center gap-2">
+                <i class="bi bi-briefcase-fill text-indigo-600"></i> Work Experience
+              </h2>
+              <p class="text-[11px] text-slate-500 mt-0.5">Use bullet points and active verbs</p>
+            </div>
+            <button type="button" onclick="addExperience()" class="text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1">
+              <i class="bi bi-plus-lg"></i> Add Position
+            </button>
+          </div>
+
+          <div id="experience-list" class="space-y-4">
+            <!-- Dynamic experience cards rendered here -->
+          </div>
+        </div>
+
+        <!-- 4. EDUCATION EDITOR -->
+        <div id="sec-education" class="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h2 class="font-bold text-sm text-ink flex items-center gap-2">
+              <i class="bi bi-mortarboard-fill text-indigo-600"></i> Education
+            </h2>
+            <button type="button" onclick="addEducation()" class="text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1">
+              <i class="bi bi-plus-lg"></i> Add Degree
+            </button>
+          </div>
+          <div id="education-list" class="space-y-3">
+            <!-- Dynamic education cards rendered here -->
+          </div>
+        </div>
+
+        <!-- 5. STRUCTURED SKILLS SECTION -->
+        <div id="sec-skills" class="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h2 class="font-bold text-sm text-ink flex items-center gap-2">
+                <i class="bi bi-cpu-fill text-indigo-600"></i> Technical &amp; Core Skills
+              </h2>
+              <p class="text-[11px] text-slate-500 mt-0.5">Organized into canonical categories</p>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <!-- Programming Languages -->
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Programming Languages</label>
+              <div class="flex gap-2">
+                <input type="text" id="input-skill-languages" placeholder="e.g. Python, TypeScript, SQL (Press Enter)" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white" onkeydown="handleSkillInput(event, 'languages')">
+                <button type="button" onclick="addSkillFromInput('languages')" class="px-3 py-1 bg-lavender hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition-colors">+</button>
+              </div>
+              <div id="tags-languages" class="flex flex-wrap gap-1.5 mt-2"></div>
+            </div>
+
+            <!-- Frameworks & Libraries -->
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Frameworks &amp; Libraries</label>
+              <div class="flex gap-2">
+                <input type="text" id="input-skill-frameworks" placeholder="e.g. Flask, FastAPI, React, SQLAlchemy" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white" onkeydown="handleSkillInput(event, 'frameworks')">
+                <button type="button" onclick="addSkillFromInput('frameworks')" class="px-3 py-1 bg-lavender hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition-colors">+</button>
+              </div>
+              <div id="tags-frameworks" class="flex flex-wrap gap-1.5 mt-2"></div>
+            </div>
+
+            <!-- Databases -->
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Databases</label>
+              <div class="flex gap-2">
+                <input type="text" id="input-skill-databases" placeholder="e.g. PostgreSQL, Redis, MongoDB" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white" onkeydown="handleSkillInput(event, 'databases')">
+                <button type="button" onclick="addSkillFromInput('databases')" class="px-3 py-1 bg-lavender hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition-colors">+</button>
+              </div>
+              <div id="tags-databases" class="flex flex-wrap gap-1.5 mt-2"></div>
+            </div>
+
+            <!-- Tools & DevOps -->
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Tools, DevOps &amp; Practices</label>
+              <div class="flex gap-2">
+                <input type="text" id="input-skill-tools" placeholder="e.g. Docker, Git, REST APIs, CI/CD, Unit Testing" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white" onkeydown="handleSkillInput(event, 'tools')">
+                <button type="button" onclick="addSkillFromInput('tools')" class="px-3 py-1 bg-lavender hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition-colors">+</button>
+              </div>
+              <div id="tags-tools" class="flex flex-wrap gap-1.5 mt-2"></div>
+            </div>
+
+            <!-- Cloud Platforms -->
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Cloud Platforms</label>
+              <div class="flex gap-2">
+                <input type="text" id="input-skill-cloud" placeholder="e.g. AWS, GCP, Azure" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white" onkeydown="handleSkillInput(event, 'cloud')">
+                <button type="button" onclick="addSkillFromInput('cloud')" class="px-3 py-1 bg-lavender hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition-colors">+</button>
+              </div>
+              <div id="tags-cloud" class="flex flex-wrap gap-1.5 mt-2"></div>
+            </div>
+
+            <!-- Other Skills -->
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Other / Soft Skills</label>
+              <div class="flex gap-2">
+                <input type="text" id="input-skill-other" placeholder="e.g. Agile, Team Leadership, Problem Solving" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white" onkeydown="handleSkillInput(event, 'other')">
+                <button type="button" onclick="addSkillFromInput('other')" class="px-3 py-1 bg-lavender hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition-colors">+</button>
+              </div>
+              <div id="tags-other" class="flex flex-wrap gap-1.5 mt-2"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6. PROJECTS SECTION -->
+        <div id="sec-projects" class="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h2 class="font-bold text-sm text-ink flex items-center gap-2">
+              <i class="bi bi-code-slash text-indigo-600"></i> Key Projects
+            </h2>
+            <button type="button" onclick="addProject()" class="text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1">
+              <i class="bi bi-plus-lg"></i> Add Project
+            </button>
+          </div>
+          <div id="projects-list" class="space-y-4">
+            <!-- Dynamic project cards rendered here -->
+          </div>
+        </div>
+
+        <!-- 7. CERTIFICATIONS SECTION -->
+        <div id="sec-certifications" class="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h2 class="font-bold text-sm text-ink flex items-center gap-2">
+              <i class="bi bi-award-fill text-indigo-600"></i> Certifications
+            </h2>
+            <button type="button" onclick="addCertification()" class="text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1">
+              <i class="bi bi-plus-lg"></i> Add Certification
+            </button>
+          </div>
+          <div id="certifications-list" class="space-y-3">
+            <!-- Dynamic certifications rendered here -->
+          </div>
+        </div>
+
+        <!-- 8. ACHIEVEMENTS SECTION -->
+        <div id="sec-achievements" class="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h2 class="font-bold text-sm text-ink flex items-center gap-2">
+              <i class="bi bi-trophy-fill text-indigo-600"></i> Achievements &amp; Awards
+            </h2>
+            <button type="button" onclick="addAchievement()" class="text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1">
+              <i class="bi bi-plus-lg"></i> Add Achievement
+            </button>
+          </div>
+          <div id="achievements-list" class="space-y-2">
+            <!-- Dynamic achievements rendered here -->
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. RIGHT PANE: LIVE PREVIEW & ATS OPTIMIZATION -->
+      <aside class="space-y-4 overflow-y-auto hidden xl:block pr-1 pb-20">
+        <!-- Live ATS Card -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <i class="bi bi-cpu text-indigo-600"></i> <span id="ats-card-header">Target Job ATS Score</span>
+            </h3>
+            <button type="button" onclick="triggerLiveAtsCheck()" title="Refresh ATS Analysis" class="text-slate-400 hover:text-indigo-600 text-xs">
+              <i class="bi bi-arrow-clockwise"></i>
+            </button>
+          </div>
+
+          <div class="flex items-baseline justify-between pt-1">
+            <div class="flex items-baseline gap-1">
+              <span id="live-ats-score" class="text-3xl font-black text-ink">--</span>
+              <span class="text-xs font-bold text-slate-400">/ 100</span>
+            </div>
+            <span id="live-ats-tier" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
+              Calculating...
+            </span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-center">
+            <div class="bg-lavender/40 rounded-lg p-1.5">
+              <p class="text-[10px] text-slate-400 font-semibold uppercase">Skills</p>
+              <p id="live-score-skills" class="text-xs font-extrabold text-ink mt-0.5">--</p>
+            </div>
+            <div class="bg-lavender/40 rounded-lg p-1.5">
+              <p class="text-[10px] text-slate-400 font-semibold uppercase">Experience</p>
+              <p id="live-score-experience" class="text-xs font-extrabold text-ink mt-0.5">--</p>
+            </div>
+            <div class="bg-lavender/40 rounded-lg p-1.5">
+              <p class="text-[10px] text-slate-400 font-semibold uppercase">Relevance</p>
+              <p id="live-score-relevance" class="text-xs font-extrabold text-ink mt-0.5">--</p>
+            </div>
+          </div>
+
+          <!-- Requirements match quick checklist -->
+          <div id="live-requirements-box" class="pt-2 border-t border-slate-100 space-y-1.5 text-xs">
+            <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Detected Requirements</p>
+            <div id="live-requirements-list" class="space-y-1 text-[11px]"></div>
+          </div>
+        </div>
+
+        <!-- Document Quality Checklist -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs space-y-2">
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Quality Checklist</p>
+          <div class="space-y-1.5 text-xs text-slate-600">
+            <div id="chk-contact" class="flex items-center gap-2 text-slate-400"><i class="bi bi-circle"></i> Contact details complete</div>
+            <div id="chk-summary" class="flex items-center gap-2 text-slate-400"><i class="bi bi-circle"></i> Professional summary</div>
+            <div id="chk-exp" class="flex items-center gap-2 text-slate-400"><i class="bi bi-circle"></i> Experience entries with bullet points</div>
+            <div id="chk-skills" class="flex items-center gap-2 text-slate-400"><i class="bi bi-circle"></i> 5+ Verified skills added</div>
+            <div id="chk-edu" class="flex items-center gap-2 text-slate-400"><i class="bi bi-circle"></i> Education history</div>
+          </div>
+        </div>
+
+        <!-- Live Document Render -->
+        <div>
+          <p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Live Page Preview</p>
+          <div id="resume-live-preview" class="preview-paper preview-modern rounded-xl p-6 text-left text-xs leading-relaxed space-y-4 border border-slate-200">
+            <!-- Rendered preview elements here -->
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+
+<!-- AI BULLET IMPROVER MODAL -->
+<div id="modal-ai-bullet" class="fixed inset-0 bg-ink/40 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-white border border-slate-200 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+      <h3 class="font-extrabold text-base text-ink flex items-center gap-2">
+        <i class="bi bi-stars text-indigo-600"></i> AI Bullet Improvement
+      </h3>
+      <button type="button" onclick="closeAiBulletModal()" class="text-slate-400 hover:text-ink text-sm">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <div>
+      <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Original Text</p>
+      <div id="ai-modal-original" class="bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs text-slate-600 italic"></div>
+    </div>
+
+    <div>
+      <p class="text-[11px] font-bold uppercase tracking-wider text-indigo-600 mb-1 flex items-center gap-1">
+        <i class="bi bi-lightning-charge-fill text-amber-500"></i> Suggested Impact Refinement
+      </p>
+      <div id="ai-modal-suggestion" class="bg-indigo-50/70 border border-indigo-100 rounded-xl p-3.5 text-xs text-indigo-950 font-medium leading-relaxed"></div>
+    </div>
+
+    <div class="flex items-center justify-end gap-2 pt-2">
+      <button type="button" onclick="closeAiBulletModal()" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-lavender transition-colors">
+        Keep Original
+      </button>
+      <button type="button" id="btn-apply-ai-bullet" class="px-4 py-2 rounded-xl bg-ink hover:bg-slate-800 text-white text-xs font-semibold transition-all">
+        Apply Suggestion
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let resumeState = {{ initial_data|tojson }};
+  let isUnsaved = false;
+  let activeAiTarget = null;
+  let atsDebounceTimer = null;
+
+  // Initialize form with initial state
+  window.addEventListener('DOMContentLoaded', () => {
+    populateFormFromState();
+    renderLivePreview();
+    updateQualityChecklist();
+    triggerLiveAtsCheck();
+  });
+
+  function populateFormFromState() {
+    const p = resumeState.personal || {};
+    document.getElementById('p-fullname').value = p.full_name || '';
+    document.getElementById('p-title').value = p.title || '';
+    document.getElementById('p-email').value = p.email || '';
+    document.getElementById('p-phone').value = p.phone || '';
+    document.getElementById('p-location').value = p.location || '';
+    document.getElementById('p-linkedin').value = p.linkedin || '';
+    document.getElementById('p-github').value = p.github || '';
+    document.getElementById('p-portfolio').value = p.portfolio || '';
+    document.getElementById('p-summary').value = resumeState.summary || '';
+
+    renderExperienceList();
+    renderEducationList();
+    renderSkillTags();
+    renderProjectsList();
+    renderCertificationsList();
+    renderAchievementsList();
+  }
+
+  function markUnsaved() {
+    isUnsaved = true;
+    const status = document.getElementById('save-status-text');
+    status.textContent = 'Unsaved changes';
+    status.className = 'text-xs font-semibold text-amber-500 px-1 hidden sm:inline';
+  }
+
+  function markSaved() {
+    isUnsaved = false;
+    const status = document.getElementById('save-status-text');
+    status.textContent = 'Saved just now';
+    status.className = 'text-xs font-semibold text-emerald-600 px-1 hidden sm:inline';
+  }
+
+  function handleFieldChange() {
+    markUnsaved();
+    syncStateFromForm();
+    renderLivePreview();
+    updateQualityChecklist();
+    debouncedLiveAtsCheck();
+  }
+
+  function syncStateFromForm() {
+    resumeState.personal = {
+      full_name: document.getElementById('p-fullname').value.trim(),
+      title: document.getElementById('p-title').value.trim(),
+      email: document.getElementById('p-email').value.trim(),
+      phone: document.getElementById('p-phone').value.trim(),
+      location: document.getElementById('p-location').value.trim(),
+      linkedin: document.getElementById('p-linkedin').value.trim(),
+      github: document.getElementById('p-github').value.trim(),
+      portfolio: document.getElementById('p-portfolio').value.trim(),
+    };
+    resumeState.summary = document.getElementById('p-summary').value.trim();
+    resumeState.template = document.getElementById('builder-template').value;
+  }
+
+  function handleTemplateChange() {
+    resumeState.template = document.getElementById('builder-template').value;
+    markUnsaved();
+    renderLivePreview();
+  }
+
+  function handleJobTargetChange() {
+    markUnsaved();
+    triggerLiveAtsCheck();
+  }
+
+  // --- EXPERIENCE ---
+  function renderExperienceList() {
+    const list = document.getElementById('experience-list');
+    list.innerHTML = '';
+    const exps = resumeState.experience || [];
+    exps.forEach((exp, idx) => {
+      const card = document.createElement('div');
+      card.className = 'bg-slate-50/70 border border-slate-200/80 rounded-xl p-4 space-y-3';
+      card.innerHTML = `
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-xs text-indigo-900">Position #${idx + 1}</span>
+          <button type="button" onclick="removeExperience(${idx})" class="text-rose-500 hover:text-rose-700 text-xs"><i class="bi bi-trash"></i> Remove</button>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-2.5">
+          <input type="text" placeholder="Job Title *" value="${exp.title || ''}" oninput="updateExpField(${idx}, 'title', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-600">
+          <input type="text" placeholder="Company Name *" value="${exp.company || ''}" oninput="updateExpField(${idx}, 'company', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-600">
+          <input type="text" placeholder="Location (e.g. City, Remote)" value="${exp.location || ''}" oninput="updateExpField(${idx}, 'location', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-600">
+          <div class="flex items-center gap-2">
+            <input type="text" placeholder="Start Date" value="${exp.start_date || ''}" oninput="updateExpField(${idx}, 'start_date', this.value)" class="w-1/2 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-600">
+            <input type="text" placeholder="End Date" value="${exp.end_date || ''}" oninput="updateExpField(${idx}, 'end_date', this.value)" class="w-1/2 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-600">
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[11px] font-bold text-slate-500 uppercase">Key Responsibilities / Bullet Points</span>
+            <button type="button" onclick="addExpBullet(${idx})" class="text-[11px] font-semibold text-indigo-600 hover:underline">+ Add Bullet</button>
+          </div>
+          <div id="exp-bullets-${idx}" class="space-y-1.5">
+            ${(exp.bullets || []).map((b, bIdx) => `
+              <div class="flex items-center gap-2">
+                <input type="text" value="${b}" oninput="updateExpBullet(${idx}, ${bIdx}, this.value)" placeholder="e.g. Developed REST APIs using Flask and PostgreSQL..." class="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-600">
+                <button type="button" title="Improve with AI" onclick="openAiBullet('experience', ${idx}, ${bIdx}, '${(exp.title || '').replace(/'/g, "\\'")}', '${(exp.company || '').replace(/'/g, "\\'")}')" class="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold shrink-0 transition-colors">
+                  <i class="bi bi-stars"></i> AI
+                </button>
+                <button type="button" onclick="removeExpBullet(${idx}, ${bIdx})" class="text-slate-400 hover:text-rose-500 text-xs px-1"><i class="bi bi-x-lg"></i></button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+      list.appendChild(card);
+    });
+  }
+
+  function addExperience() {
+    resumeState.experience = resumeState.experience || [];
+    resumeState.experience.push({ title: '', company: '', location: '', start_date: '', end_date: '', bullets: [''] });
+    handleFieldChange();
+    renderExperienceList();
+  }
+
+  function removeExperience(idx) {
+    resumeState.experience.splice(idx, 1);
+    handleFieldChange();
+    renderExperienceList();
+  }
+
+  function updateExpField(idx, field, val) {
+    resumeState.experience[idx][field] = val;
+    handleFieldChange();
+  }
+
+  function addExpBullet(expIdx) {
+    resumeState.experience[expIdx].bullets = resumeState.experience[expIdx].bullets || [];
+    resumeState.experience[expIdx].bullets.push('');
+    handleFieldChange();
+    renderExperienceList();
+  }
+
+  function updateExpBullet(expIdx, bIdx, val) {
+    resumeState.experience[expIdx].bullets[bIdx] = val;
+    handleFieldChange();
+  }
+
+  function removeExpBullet(expIdx, bIdx) {
+    resumeState.experience[expIdx].bullets.splice(bIdx, 1);
+    handleFieldChange();
+    renderExperienceList();
+  }
+
+  // --- EDUCATION ---
+  function renderEducationList() {
+    const list = document.getElementById('education-list');
+    list.innerHTML = '';
+    const edus = resumeState.education || [];
+    edus.forEach((edu, idx) => {
+      const item = document.createElement('div');
+      item.className = 'bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 space-y-2';
+      item.innerHTML = `
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-xs text-indigo-900">Degree #${idx + 1}</span>
+          <button type="button" onclick="removeEducation(${idx})" class="text-rose-500 hover:text-rose-700 text-xs"><i class="bi bi-trash"></i></button>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-2">
+          <input type="text" placeholder="Degree (e.g. B.S. Computer Science)" value="${edu.degree || ''}" oninput="updateEduField(${idx}, 'degree', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
+          <input type="text" placeholder="Institution / University" value="${edu.institution || ''}" oninput="updateEduField(${idx}, 'institution', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
+          <input type="text" placeholder="Graduation Year (e.g. 2023)" value="${edu.year || ''}" oninput="updateEduField(${idx}, 'year', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
+          <input type="text" placeholder="GPA / Honors (optional)" value="${edu.gpa || ''}" oninput="updateEduField(${idx}, 'gpa', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
+        </div>
+      `;
+      list.appendChild(item);
+    });
+  }
+
+  function addEducation() {
+    resumeState.education = resumeState.education || [];
+    resumeState.education.push({ degree: '', institution: '', year: '', gpa: '' });
+    handleFieldChange();
+    renderEducationList();
+  }
+
+  function removeEducation(idx) {
+    resumeState.education.splice(idx, 1);
+    handleFieldChange();
+    renderEducationList();
+  }
+
+  function updateEduField(idx, field, val) {
+    resumeState.education[idx][field] = val;
+    handleFieldChange();
+  }
+
+  // --- SKILLS TAGS ---
+  function renderSkillTags() {
+    const cats = ['languages', 'frameworks', 'databases', 'tools', 'cloud', 'other'];
+    cats.forEach(cat => {
+      const container = document.getElementById(`tags-${cat}`);
+      if (!container) return;
+      container.innerHTML = '';
+      const items = (resumeState.skills && resumeState.skills[cat]) || [];
+      items.forEach((skill, sIdx) => {
+        const badge = document.createElement('span');
+        badge.className = 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100';
+        badge.innerHTML = `<span>${skill}</span><button type="button" onclick="removeSkill('${cat}', ${sIdx})" class="hover:text-rose-600 ml-0.5">×</button>`;
+        container.appendChild(badge);
+      });
+    });
+  }
+
+  function handleSkillInput(e, cat) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addSkillFromInput(cat);
+    }
+  }
+
+  function addSkillFromInput(cat) {
+    const input = document.getElementById(`input-skill-${cat}`);
+    const val = input.value.trim().replace(/,/g, '');
+    if (!val) return;
+    resumeState.skills = resumeState.skills || {};
+    resumeState.skills[cat] = resumeState.skills[cat] || [];
+    if (!resumeState.skills[cat].includes(val)) {
+      resumeState.skills[cat].push(val);
+      input.value = '';
+      handleFieldChange();
+      renderSkillTags();
+    }
+  }
+
+  function removeSkill(cat, idx) {
+    resumeState.skills[cat].splice(idx, 1);
+    handleFieldChange();
+    renderSkillTags();
+  }
+
+  // --- PROJECTS ---
+  function renderProjectsList() {
+    const list = document.getElementById('projects-list');
+    list.innerHTML = '';
+    const projs = resumeState.projects || [];
+    projs.forEach((p, idx) => {
+      const card = document.createElement('div');
+      card.className = 'bg-slate-50/70 border border-slate-200/80 rounded-xl p-4 space-y-3';
+      card.innerHTML = `
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-xs text-indigo-900">Project #${idx + 1}</span>
+          <button type="button" onclick="removeProject(${idx})" class="text-rose-500 hover:text-rose-700 text-xs"><i class="bi bi-trash"></i> Remove</button>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-2">
+          <input type="text" placeholder="Project Name *" value="${p.name || ''}" oninput="updateProjField(${idx}, 'name', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
+          <input type="text" placeholder="Your Role (e.g. Lead Developer)" value="${p.role || ''}" oninput="updateProjField(${idx}, 'role', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
+          <input type="text" placeholder="Live Link / URL" value="${p.link || ''}" oninput="updateProjField(${idx}, 'link', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
+          <input type="text" placeholder="GitHub Repository URL" value="${p.github || ''}" oninput="updateProjField(${idx}, 'github', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[11px] font-bold text-slate-500 uppercase">Project Bullets</span>
+            <button type="button" onclick="addProjBullet(${idx})" class="text-[11px] font-semibold text-indigo-600 hover:underline">+ Add Bullet</button>
+          </div>
+          <div id="proj-bullets-${idx}" class="space-y-1.5">
+            ${(p.bullets || []).map((b, bIdx) => `
+              <div class="flex items-center gap-2">
+                <input type="text" value="${b}" oninput="updateProjBullet(${idx}, ${bIdx}, this.value)" placeholder="e.g. Architected distributed payment microservice..." class="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
+                <button type="button" title="Improve with AI" onclick="openAiBullet('project', ${idx}, ${bIdx}, '${(p.name || '').replace(/'/g, "\\'")}', '')" class="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold shrink-0 transition-colors">
+                  <i class="bi bi-stars"></i> AI
+                </button>
+                <button type="button" onclick="removeProjBullet(${idx}, ${bIdx})" class="text-slate-400 hover:text-rose-500 text-xs px-1"><i class="bi bi-x-lg"></i></button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+      list.appendChild(card);
+    });
+  }
+
+  function addProject() {
+    resumeState.projects = resumeState.projects || [];
+    resumeState.projects.push({ name: '', role: '', technologies: [], link: '', github: '', bullets: [''] });
+    handleFieldChange();
+    renderProjectsList();
+  }
+
+  function removeProject(idx) {
+    resumeState.projects.splice(idx, 1);
+    handleFieldChange();
+    renderProjectsList();
+  }
+
+  function updateProjField(idx, field, val) {
+    resumeState.projects[idx][field] = val;
+    handleFieldChange();
+  }
+
+  function addProjBullet(idx) {
+    resumeState.projects[idx].bullets = resumeState.projects[idx].bullets || [];
+    resumeState.projects[idx].bullets.push('');
+    handleFieldChange();
+    renderProjectsList();
+  }
+
+  function updateProjBullet(pIdx, bIdx, val) {
+    resumeState.projects[pIdx].bullets[bIdx] = val;
+    handleFieldChange();
+  }
+
+  function removeProjBullet(pIdx, bIdx) {
+    resumeState.projects[pIdx].bullets.splice(bIdx, 1);
+    handleFieldChange();
+    renderProjectsList();
+  }
+
+  // --- CERTIFICATIONS ---
+  function renderCertificationsList() {
+    const list = document.getElementById('certifications-list');
+    list.innerHTML = '';
+    const certs = resumeState.certifications || [];
+    certs.forEach((c, idx) => {
+      const item = document.createElement('div');
+      item.className = 'bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 space-y-2';
+      item.innerHTML = `
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-xs text-indigo-900">Cert #${idx + 1}</span>
+          <button type="button" onclick="removeCertification(${idx})" class="text-rose-500 hover:text-rose-700 text-xs"><i class="bi bi-trash"></i></button>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-2">
+          <input type="text" placeholder="Certification Name" value="${c.name || ''}" oninput="updateCertField(${idx}, 'name', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
+          <input type="text" placeholder="Issuing Organization (e.g. AWS)" value="${c.issuer || ''}" oninput="updateCertField(${idx}, 'issuer', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
+        </div>
+      `;
+      list.appendChild(item);
+    });
+  }
+
+  function addCertification() {
+    resumeState.certifications = resumeState.certifications || [];
+    resumeState.certifications.push({ name: '', issuer: '', year: '', url: '' });
+    handleFieldChange();
+    renderCertificationsList();
+  }
+
+  function removeCertification(idx) {
+    resumeState.certifications.splice(idx, 1);
+    handleFieldChange();
+    renderCertificationsList();
+  }
+
+  function updateCertField(idx, field, val) {
+    resumeState.certifications[idx][field] = val;
+    handleFieldChange();
+  }
+
+  // --- ACHIEVEMENTS ---
+  function renderAchievementsList() {
+    const list = document.getElementById('achievements-list');
+    list.innerHTML = '';
+    const achs = resumeState.achievements || [];
+    achs.forEach((a, idx) => {
+      const strVal = typeof a === 'string' ? a : (a.title || '');
+      const item = document.createElement('div');
+      item.className = 'flex items-center gap-2';
+      item.innerHTML = `
+        <input type="text" placeholder="e.g. 1st Place at National Hackathon 2024" value="${strVal}" oninput="updateAchievement(${idx}, this.value)" class="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
+        <button type="button" onclick="removeAchievement(${idx})" class="text-rose-500 text-xs px-1"><i class="bi bi-trash"></i></button>
+      `;
+      list.appendChild(item);
+    });
+  }
+
+  function addAchievement() {
+    resumeState.achievements = resumeState.achievements || [];
+    resumeState.achievements.push('');
+    handleFieldChange();
+    renderAchievementsList();
+  }
+
+  function removeAchievement(idx) {
+    resumeState.achievements.splice(idx, 1);
+    handleFieldChange();
+    renderAchievementsList();
+  }
+
+  function updateAchievement(idx, val) {
+    resumeState.achievements[idx] = val;
+    handleFieldChange();
+  }
+
+  // --- AI BULLET IMPROVER ---
+  async function openAiBullet(type, itemIdx, bulletIdx, title, company) {
+    let bulletText = '';
+    if (type === 'experience') {
+      bulletText = (resumeState.experience[itemIdx].bullets || [])[bulletIdx] || '';
+    } else {
+      bulletText = (resumeState.projects[itemIdx].bullets || [])[bulletIdx] || '';
+    }
+    if (!bulletText.trim()) {
+      alert('Please enter some text in the bullet first before improving with AI.');
+      return;
+    }
+
+    activeAiTarget = { type, itemIdx, bulletIdx };
+    document.getElementById('ai-modal-original').textContent = bulletText;
+    document.getElementById('ai-modal-suggestion').textContent = 'Analyzing and generating professional action-oriented refinement...';
+    document.getElementById('modal-ai-bullet').classList.remove('hidden');
+
+    try {
+      const csrfToken1 = document.querySelector('meta[name="csrf-token"]')?.content || '';
+      const res = await fetch('{{ url_for("candidate.api_improve_bullet") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken1 },
+        body: JSON.stringify({ bullet: bulletText, title: title || '', company: company || '' })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        document.getElementById('ai-modal-suggestion').textContent = data.suggestion;
+        document.getElementById('btn-apply-ai-bullet').onclick = () => {
+          applyAiBullet(data.suggestion);
+        };
+      } else {
+        document.getElementById('ai-modal-suggestion').textContent = bulletText;
+      }
+    } catch (err) {
+      document.getElementById('ai-modal-suggestion').textContent = bulletText;
+    }
+  }
+
+  function applyAiBullet(improvedText) {
+    if (!activeAiTarget) return;
+    const { type, itemIdx, bulletIdx } = activeAiTarget;
+    if (type === 'experience') {
+      resumeState.experience[itemIdx].bullets[bulletIdx] = improvedText;
+      renderExperienceList();
+    } else {
+      resumeState.projects[itemIdx].bullets[bulletIdx] = improvedText;
+      renderProjectsList();
+    }
+    closeAiBulletModal();
+    handleFieldChange();
+  }
+
+  function closeAiBulletModal() {
+    document.getElementById('modal-ai-bullet').classList.add('hidden');
+    activeAiTarget = null;
+  }
+
+  // --- LIVE ATS CHECK ---
+  function debouncedLiveAtsCheck() {
+    clearTimeout(atsDebounceTimer);
+    atsDebounceTimer = setTimeout(() => {
+      triggerLiveAtsCheck();
+    }, 900);
+  }
+
+  async function triggerLiveAtsCheck() {
+    const targetJobId = document.getElementById('builder-target-job').value;
+    const header = document.getElementById('ats-card-header');
+    if (targetJobId) {
+      header.textContent = 'Target Job ATS Score';
+    } else {
+      header.textContent = 'General Profile ATS Score';
+    }
+
+    try {
+      const csrfToken2 = document.querySelector('meta[name="csrf-token"]')?.content || '';
+      const res = await fetch('{{ url_for("candidate.api_analyze_live") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken2 },
+        body: JSON.stringify({ resume_data: resumeState, target_job_id: targetJobId })
+      });
+      const data = await res.json();
+      if (data.status === 'success' && data.ats_result) {
+        const r = data.ats_result;
+        document.getElementById('live-ats-score').textContent = r.score;
+        const tier = document.getElementById('live-ats-tier');
+        tier.textContent = r.tier_label || 'Match';
+        if (r.score >= 80) tier.className = 'text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800';
+        else if (r.score >= 70) tier.className = 'text-xs font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800';
+        else if (r.score >= 50) tier.className = 'text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800';
+        else tier.className = 'text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800';
+
+        document.getElementById('live-score-skills').textContent = `${r.breakdown['Skills Match']}%`;
+        document.getElementById('live-score-experience').textContent = `${r.breakdown['Experience Match']}%`;
+        document.getElementById('live-score-relevance').textContent = `${r.breakdown['Job Relevance']}%`;
+
+        // Requirements list
+        const reqList = document.getElementById('live-requirements-list');
+        reqList.innerHTML = '';
+        if (r.requirements_match && r.requirements_match.matched) {
+          r.requirements_match.matched.slice(0, 3).forEach(m => {
+            reqList.innerHTML += `<div class="text-emerald-700 flex items-center gap-1"><i class="bi bi-check2"></i> <span class="truncate">${m}</span></div>`;
+          });
+        }
+        if (r.requirements_match && r.requirements_match.missing) {
+          r.requirements_match.missing.slice(0, 3).forEach(m => {
+            reqList.innerHTML += `<div class="text-amber-700 flex items-center gap-1"><i class="bi bi-exclamation-circle"></i> <span class="truncate">${m}</span></div>`;
+          });
+        }
+      }
+    } catch (e) {}
+  }
+
+  // --- QUALITY CHECKLIST ---
+  function updateQualityChecklist() {
+    const p = resumeState.personal || {};
+    const hasContact = Boolean(p.full_name && (p.email || p.phone));
+    const hasSummary = Boolean(resumeState.summary && resumeState.summary.length >= 25);
+    const hasExp = Boolean((resumeState.experience || []).some(e => e.title && (e.bullets || []).length > 0));
+    const allSkills = Object.values(resumeState.skills || {}).flat();
+    const hasSkills = allSkills.length >= 4;
+    const hasEdu = Boolean((resumeState.education || []).some(ed => ed.degree));
+
+    updateCheckItem('chk-contact', hasContact, 'Contact details complete');
+    updateCheckItem('chk-summary', hasSummary, 'Professional summary');
+    updateCheckItem('chk-exp', hasExp, 'Experience with bullet points');
+    updateCheckItem('chk-skills', hasSkills, `${allSkills.length} Verified skills added`);
+    updateCheckItem('chk-edu', hasEdu, 'Education history');
+
+    // Calculate percentage
+    const totalChecks = [hasContact, hasSummary, hasExp, hasSkills, hasEdu];
+    const passed = totalChecks.filter(Boolean).length;
+    const pct = Math.round((passed / totalChecks.length) * 100);
+    document.getElementById('readiness-pct-text').textContent = `${pct}%`;
+    document.getElementById('readiness-progress-bar').style.width = `${pct}%`;
+  }
+
+  function updateCheckItem(id, passed, text) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (passed) {
+      el.className = 'flex items-center gap-2 text-emerald-600 font-medium';
+      el.innerHTML = `<i class="bi bi-check-circle-fill text-emerald-500"></i> ${text}`;
+    } else {
+      el.className = 'flex items-center gap-2 text-slate-400';
+      el.innerHTML = `<i class="bi bi-circle"></i> ${text}`;
+    }
+  }
+
+  // --- LIVE PREVIEW RENDER ---
+  function renderLivePreview() {
+    const preview = document.getElementById('resume-live-preview');
+    const t = resumeState.template || 'modern';
+    preview.className = `preview-paper preview-${t} rounded-xl p-6 text-left text-xs leading-relaxed space-y-4 border border-slate-200`;
+
+    const p = resumeState.personal || {};
+    const exps = resumeState.experience || [];
+    const edus = resumeState.education || [];
+    const projs = resumeState.projects || [];
+    const certs = resumeState.certifications || [];
+    const achs = resumeState.achievements || [];
+    const skills = resumeState.skills || {};
+
+    let html = `
+      <div>
+        <h2 class="text-xl font-extrabold text-ink tracking-tight">${p.full_name || 'Your Full Name'}</h2>
+        ${p.title ? `<p class="text-indigo-600 font-bold text-xs mt-0.5">${p.title}</p>` : ''}
+        <p class="text-[11px] text-slate-400 mt-1">${[p.email, p.phone, p.location, p.linkedin, p.github].filter(Boolean).join('  ·  ')}</p>
+      </div>
+      <hr class="border-slate-100">
+    `;
+
+    if (resumeState.summary) {
+      html += `
+        <div>
+          <h3 class="font-bold text-[11px] text-slate-500 uppercase tracking-wider mb-1">Professional Summary</h3>
+          <p class="text-slate-700 leading-normal">${resumeState.summary}</p>
+        </div>
+      `;
+    }
+
+    if (exps.length > 0) {
+      html += `
+        <div>
+          <h3 class="font-bold text-[11px] text-slate-500 uppercase tracking-wider mb-2">Experience</h3>
+          <div class="space-y-3">
+            ${exps.map(e => `
+              <div>
+                <div class="flex items-baseline justify-between font-bold text-ink">
+                  <span>${e.title || 'Role'} ${e.company ? `| ${e.company}` : ''}</span>
+                  <span class="text-[10px] text-slate-400 font-normal">${e.start_date || ''} - ${e.current ? 'Present' : (e.end_date || 'Present')}</span>
+                </div>
+                ${(e.bullets || []).filter(b => b.trim()).map(b => `<p class="text-slate-600 pl-2 mt-0.5">• ${b}</p>`).join('')}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    if (edus.length > 0) {
+      html += `
+        <div>
+          <h3 class="font-bold text-[11px] text-slate-500 uppercase tracking-wider mb-2">Education</h3>
+          <div class="space-y-1.5">
+            ${edus.map(ed => `
+              <div class="flex items-baseline justify-between">
+                <span class="font-bold text-ink">${ed.degree || 'Degree'} ${ed.institution ? `— ${ed.institution}` : ''}</span>
+                <span class="text-[10px] text-slate-400">${ed.year || ''}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    const hasSkills = Object.values(skills).some(arr => arr && arr.length > 0);
+    if (hasSkills) {
+      html += `
+        <div>
+          <h3 class="font-bold text-[11px] text-slate-500 uppercase tracking-wider mb-1.5">Technical Skills</h3>
+          <div class="space-y-1">
+            ${Object.entries(skills).filter(([k, arr]) => arr && arr.length > 0).map(([k, arr]) => `
+              <p><strong class="font-semibold text-slate-800 capitalize">${k.replace('_', ' ')}:</strong> <span class="text-slate-600">${arr.join(', ')}</span></p>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    if (projs.length > 0) {
+      html += `
+        <div>
+          <h3 class="font-bold text-[11px] text-slate-500 uppercase tracking-wider mb-2">Projects</h3>
+          <div class="space-y-2">
+            ${projs.map(pr => `
+              <div>
+                <span class="font-bold text-ink">${pr.name || 'Project'}</span>
+                ${(pr.bullets || []).filter(b => b.trim()).map(b => `<p class="text-slate-600 pl-2 mt-0.5">• ${b}</p>`).join('')}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    preview.innerHTML = html;
+  }
+
+  // --- SAVE RESUME ---
+  async function saveResume() {
+    syncStateFromForm();
+    const name = document.getElementById('builder-resume-name').value.trim() || 'My Resume';
+    const targetJobId = document.getElementById('builder-target-job').value;
+    const resumeId = document.getElementById('builder-resume-id').value;
+
+    const btn = document.getElementById('btn-save-resume');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-arrow-repeat animate-spin"></i> Saving...';
+
+    try {
+      const csrfToken3 = document.querySelector('meta[name="csrf-token"]')?.content || '';
+      const res = await fetch('{{ url_for("candidate.api_save_resume_builder") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken3 },
+        body: JSON.stringify({
+          resume_id: resumeId ? parseInt(resumeId) : null,
+          name: name,
+          target_role: resumeState.personal.title || '',
+          target_job_id: targetJobId,
+          resume_data: resumeState,
+        })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        document.getElementById('builder-resume-id').value = data.resume_id;
+        markSaved();
+        triggerLiveAtsCheck();
+      } else {
+        alert('Error saving resume: ' + (data.message || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('Error saving resume: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-floppy"></i> Save';
+    }
+  }
+
+  // --- PDF DOWNLOAD ---
+  async function downloadCurrentPdf() {
+    syncStateFromForm();
+    const btn = document.querySelector('button[onclick="downloadCurrentPdf()"]');
+    btn.innerHTML = '<i class="bi bi-arrow-repeat animate-spin"></i> Exporting...';
+    btn.disabled = true;
+
+    try {
+      const csrfToken4 = document.querySelector('meta[name="csrf-token"]')?.content || '';
+      const res = await fetch('{{ url_for("candidate.export_builder_pdf") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken4 },
+        body: JSON.stringify({
+          resume_data: resumeState,
+          template: resumeState.template || 'modern'
+        })
+      });
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(resumeState.personal.full_name || 'resume').replace(/\s+/g, '_')}_resume.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      alert('Could not export PDF: ' + e.message);
+    } finally {
+      btn.innerHTML = '<i class="bi bi-download"></i> PDF';
+      btn.disabled = false;
+    }
+  }
+
+  function scrollToSection(secId) {
+    const el = document.getElementById(secId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+</script>
+{% endblock %}

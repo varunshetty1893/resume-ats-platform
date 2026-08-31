@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Zentra — Welcome back{% endblock %}
+
+{% block content %}
+<main class="flex-1 flex items-center justify-center px-6 py-12">
+  <div class="w-full max-w-5xl bg-white rounded-2xl border border-slate-200 shadow-lg shadow-slate-200/70 overflow-hidden grid lg:grid-cols-2 fade-up mx-auto mt-6 transition-all duration-300 hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-1 hover:scale-[1.01]">
+
+    <div class="hidden lg:flex flex-col justify-between grid-bg bg-lavender p-10 relative overflow-hidden">
+      <div>
+        <span class="w-9 h-9 rounded-lg bg-ink text-white flex items-center justify-center font-bold text-sm mb-8">Z</span>
+        <h1 class="text-4xl font-extrabold tracking-tight leading-[1.1]">Match with<br/>precision.</h1>
+        <p class="text-slate-500 mt-4 max-w-xs leading-relaxed">Where human intuition meets machine precision. Join the ecosystem redefining the future of recruitment.</p>
+      </div>
+      <div class="flex flex-col gap-3 relative z-10">
+        <div class="bg-white/90 backdrop-blur border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-3 w-fit shadow-sm">
+          <i class="bi bi-graph-up-arrow text-indigo-600"></i><span class="text-sm font-semibold">AI-powered analytics</span>
+        </div>
+        <div class="bg-white/90 backdrop-blur border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-3 w-fit shadow-sm">
+          <i class="bi bi-bullseye text-indigo-600"></i><span class="text-sm font-semibold">Smart candidate matching</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="p-8 sm:p-10 flex flex-col justify-center">
+      <div class="relative bg-lavender rounded-lg p-1 flex mb-8" role="tablist">
+        <button type="button" id="tab-login" onclick="setMode('login')" class="relative z-10 flex-1 text-sm font-semibold py-2.5 rounded-md transition-colors text-ink">Login</button>
+        <button type="button" id="tab-signup" onclick="setMode('signup')" class="relative z-10 flex-1 text-sm font-semibold py-2.5 rounded-md transition-colors text-slate-400">Sign up</button>
+        <div id="tab-bg" class="absolute top-1 left-1 h-[calc(100%-8px)] w-[calc(50%-4px)] bg-white rounded-md shadow-sm transition-transform duration-200"></div>
+      </div>
+
+      <div id="form-login">
+        <h2 class="text-2xl font-extrabold tracking-tight mb-1">Welcome back</h2>
+        <p class="text-sm text-slate-500 mb-6">Sign in to continue to your Zentra account.</p>
+
+        <button type="button" disabled title="Google sign-in isn't connected yet" class="w-full flex items-center justify-center gap-2.5 border border-slate-200 rounded-lg py-3 text-sm font-semibold text-slate-400 bg-slate-50 cursor-not-allowed mb-5">
+          <svg class="w-4 h-4 opacity-50" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.5 12.27c0-.79-.07-1.54-.2-2.27H12v4.3h6.47c-.28 1.5-1.13 2.77-2.4 3.62v3h3.87c2.27-2.09 3.56-5.17 3.56-8.65z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.87-3c-1.08.72-2.45 1.15-4.06 1.15-3.12 0-5.77-2.11-6.71-4.94H1.3v3.1C3.26 21.3 7.3 24 12 24z"/><path fill="#FBBC05" d="M5.29 14.3c-.24-.72-.38-1.49-.38-2.3s.14-1.58.38-2.3v-3.1H1.3A11.98 11.98 0 000 12c0 1.93.46 3.76 1.3 5.4l3.99-3.1z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.94 1.19 15.24 0 12 0 7.3 0 3.26 2.7 1.3 6.6l3.99 3.1c.94-2.83 3.59-4.95 6.71-4.95z"/></svg>
+          Continue with Google (coming soon)
+        </button>
+
+        <div class="flex items-center gap-3 mb-5">
+          <div class="h-px bg-slate-200 flex-1"></div>
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">or continue with email</span>
+          <div class="h-px bg-slate-200 flex-1"></div>
+        </div>
+
+        <form method="POST" action="{{ url_for('auth.login') }}" class="space-y-4">
+          {{ login_form.hidden_tag() }}
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ login_form.email.label.text }}</label>
+            {{ login_form.email(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="you@example.com") }}
+            {% for error in login_form.email.errors %}<p class="text-xs text-rose-500 mt-1">{{ error }}</p>{% endfor %}
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ login_form.password.label.text }}</label>
+            {{ login_form.password(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="••••••••") }}
+            {% for error in login_form.password.errors %}<p class="text-xs text-rose-500 mt-1">{{ error }}</p>{% endfor %}
+          </div>
+          <div class="flex items-center justify-between">
+            <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+              {{ login_form.remember_me(class_="w-4 h-4 rounded accent-indigo-600") }} Remember me
+            </label>
+            <a href="{{ url_for('auth.forgot_password') }}" class="text-sm font-semibold text-indigo-600 hover:text-indigo-700">Forgot password?</a>
+          </div>
+          {{ login_form.submit(class_="w-full bg-ink text-white text-sm font-semibold py-3 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer") }}
+        </form>
+      </div>
+
+      <div id="form-signup" class="hidden">
+        <h2 class="text-2xl font-extrabold tracking-tight mb-1">Create your account</h2>
+        <p class="text-sm text-slate-500 mb-6">Start matching with roles that fit you.</p>
+
+        <button type="button" disabled title="Google sign-in isn't connected yet" class="w-full flex items-center justify-center gap-2.5 border border-slate-200 rounded-lg py-3 text-sm font-semibold text-slate-400 bg-slate-50 cursor-not-allowed mb-5">
+          <svg class="w-4 h-4 opacity-50" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.5 12.27c0-.79-.07-1.54-.2-2.27H12v4.3h6.47c-.28 1.5-1.13 2.77-2.4 3.62v3h3.87c2.27-2.09 3.56-5.17 3.56-8.65z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.87-3c-1.08.72-2.45 1.15-4.06 1.15-3.12 0-5.77-2.11-6.71-4.94H1.3v3.1C3.26 21.3 7.3 24 12 24z"/><path fill="#FBBC05" d="M5.29 14.3c-.24-.72-.38-1.49-.38-2.3s.14-1.58.38-2.3v-3.1H1.3A11.98 11.98 0 000 12c0 1.93.46 3.76 1.3 5.4l3.99-3.1z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.94 1.19 15.24 0 12 0 7.3 0 3.26 2.7 1.3 6.6l3.99 3.1c.94-2.83 3.59-4.95 6.71-4.95z"/></svg>
+          Continue with Google (coming soon)
+        </button>
+
+        <div class="flex items-center gap-3 mb-5">
+          <div class="h-px bg-slate-200 flex-1"></div>
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">or sign up with email</span>
+          <div class="h-px bg-slate-200 flex-1"></div>
+        </div>
+
+        <form method="POST" action="{{ url_for('auth.signup') }}" class="space-y-4">
+          {{ signup_form.hidden_tag() }}
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ signup_form.full_name.label.text }}</label>
+            {{ signup_form.full_name(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="Jordan Lee") }}
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ signup_form.email.label.text }}</label>
+            {{ signup_form.email(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="you@example.com") }}
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ signup_form.password.label.text }}</label>
+            {{ signup_form.password(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="At least 8 characters") }}
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ signup_form.confirm_password.label.text }}</label>
+            {{ signup_form.confirm_password(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="Repeat password") }}
+          </div>
+          <label class="flex items-start gap-2.5 text-sm text-slate-600 cursor-pointer">
+            {{ signup_form.agree_terms(class_="w-4 h-4 mt-0.5 rounded accent-indigo-600 shrink-0") }}
+            <span>I agree to the <a href="{{ url_for('main.terms') }}" target="_blank" class="font-semibold text-indigo-600 hover:text-indigo-700">Terms &amp; Conditions</a> and <a href="{{ url_for('main.privacy') }}" target="_blank" class="font-semibold text-indigo-600 hover:text-indigo-700">Privacy Policy</a></span>
+          </label>
+          {{ signup_form.submit(class_="w-full bg-ink text-white text-sm font-semibold py-3 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer") }}
+        </form>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function setMode(mode) {
+    const bg = document.getElementById('tab-bg');
+    const loginTab = document.getElementById('tab-login');
+    const signupTab = document.getElementById('tab-signup');
+    const loginForm = document.getElementById('form-login');
+    const signupForm = document.getElementById('form-signup');
+    if (mode === 'login') {
+      bg.style.transform = 'translateX(0)';
+      loginTab.classList.add('text-ink'); loginTab.classList.remove('text-slate-400');
+      signupTab.classList.add('text-slate-400'); signupTab.classList.remove('text-ink');
+      loginForm.classList.remove('hidden'); signupForm.classList.add('hidden');
+    } else {
+      bg.style.transform = 'translateX(100%)';
+      signupTab.classList.add('text-ink'); signupTab.classList.remove('text-slate-400');
+      loginTab.classList.add('text-slate-400'); loginTab.classList.remove('text-ink');
+      signupForm.classList.remove('hidden'); loginForm.classList.add('hidden');
+    }
+  }
+  {% if signup_form.errors %} setMode('signup'); {% endif %}
+</script>
+{% endblock %}

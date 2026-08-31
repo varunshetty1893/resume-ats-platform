@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+{% block title %}Zentra — {{ job.title }} Workspace{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-6 lg:px-10 py-10">
+  
+  <!-- Back to jobs -->
+  <div class="mb-6 flex items-center justify-between">
+    <a href="{{ url_for('recruiter.jobs') }}" class="text-xs font-semibold text-slate-500 hover:text-ink inline-flex items-center gap-1.5 transition-colors">
+      <i class="bi bi-arrow-left"></i>Back to All Jobs
+    </a>
+  </div>
+
+  <!-- Job Header Card -->
+  <div class="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm">
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-100">
+      <div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <h1 class="text-2xl font-extrabold text-ink">{{ job.title }}</h1>
+          
+          <!-- Status Badge -->
+          {% if job.status == 'active' %}
+          <span class="text-xs font-bold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Active
+          </span>
+          {% elif job.status == 'draft' %}
+          <span class="text-xs font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span> Draft
+          </span>
+          {% elif job.status == 'paused' %}
+          <span class="text-xs font-bold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-blue-500"></span> Paused
+          </span>
+          {% else %}
+          <span class="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-slate-400"></span> Closed
+          </span>
+          {% endif %}
+
+          <span class="text-xs font-semibold px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700">
+            {{ job.work_mode|capitalize }}
+          </span>
+          <span class="text-xs font-semibold px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700">
+            {{ job.experience_level|capitalize }} Level
+          </span>
+        </div>
+
+        <!-- Specifications Line -->
+        <div class="flex items-center gap-4 text-xs text-slate-500 mt-3 flex-wrap">
+          <span><i class="bi bi-geo-alt mr-1 text-slate-400"></i>{{ job.location or 'Remote / Global' }}</span>
+          <span><i class="bi bi-clock mr-1 text-slate-400"></i>{{ job.job_type.replace('_', ' ')|capitalize }}</span>
+          {% if job.salary_min or job.salary_max %}
+          <span class="font-bold text-slate-700"><i class="bi bi-cash-stack mr-1 text-emerald-600"></i>₹{{ job.salary_min or '—' }}{% if job.salary_max %} - ₹{{ job.salary_max }}{% endif %} LPA</span>
+          {% endif %}
+          <span><i class="bi bi-calendar3 mr-1 text-slate-400"></i>Posted {{ job.created_at.strftime('%B %d, %Y') }}</span>
+        </div>
+      </div>
+
+      <!-- Quick Status Switcher & Actions -->
+      <div class="flex items-center gap-3 shrink-0 flex-wrap">
+        <form method="POST" action="{{ url_for('recruiter.update_job_status', job_id=job.id) }}" class="flex items-center gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          <input type="hidden" name="return_to" value="overview"/>
+          <select name="status" onchange="this.form.submit()" 
+                  class="bg-slate-50 border border-slate-200 text-xs font-bold rounded-xl px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all shadow-sm">
+            <option value="active" {{ 'selected' if job.status == 'active' else '' }}>🟢 Active (Live)</option>
+            <option value="draft" {{ 'selected' if job.status == 'draft' else '' }}>🟡 Save as Draft</option>
+            <option value="paused" {{ 'selected' if job.status == 'paused' else '' }}>🔵 Pause Job</option>
+            <option value="closed" {{ 'selected' if job.status == 'closed' else '' }}>⚪ Close Job</option>
+          </select>
+        </form>
+
+        <a href="{{ url_for('recruiter.edit_job', job_id=job.id) }}" class="text-xs font-semibold border border-slate-200 px-3.5 py-2 rounded-xl hover:bg-slate-50 text-slate-700 transition-colors">
+          <i class="bi bi-pencil mr-1"></i>Edit Posting
+        </a>
+      </div>
+    </div>
+
+    <!-- Hiring Progress Funnel Bar -->
+    <div class="mt-6">
+      <div class="flex items-center justify-between text-xs font-bold text-slate-500 mb-2">
+        <span>Hiring Pipeline Progress</span>
+        <span class="text-ink">{{ total_applicants }} Total Applicants</span>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-center">
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block">Applied</span>
+          <span class="text-lg font-extrabold text-slate-800 mt-1 block">{{ progress.applied }}</span>
+        </div>
+        <div class="p-3 rounded-2xl bg-blue-50/50 border border-blue-100 text-center">
+          <span class="text-xs font-bold text-blue-700 uppercase tracking-wider block">Under Review</span>
+          <span class="text-lg font-extrabold text-blue-800 mt-1 block">{{ progress.under_review }}</span>
+        </div>
+        <div class="p-3 rounded-2xl bg-violet-50/50 border border-violet-100 text-center">
+          <span class="text-xs font-bold text-violet-700 uppercase tracking-wider block">Shortlisted</span>
+          <span class="text-lg font-extrabold text-violet-800 mt-1 block">{{ progress.shortlisted }}</span>
+        </div>
+        <div class="p-3 rounded-2xl bg-amber-50/50 border border-amber-100 text-center">
+          <span class="text-xs font-bold text-amber-700 uppercase tracking-wider block">Interview</span>
+          <span class="text-lg font-extrabold text-amber-800 mt-1 block">{{ progress.interview }}</span>
+        </div>
+        <div class="p-3 rounded-2xl bg-emerald-50/50 border border-emerald-100 text-center">
+          <span class="text-xs font-bold text-emerald-700 uppercase tracking-wider block">Hired</span>
+          <span class="text-lg font-extrabold text-emerald-800 mt-1 block">{{ progress.hired }}</span>
+        </div>
+        <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-center">
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block">Rejected</span>
+          <span class="text-lg font-extrabold text-slate-600 mt-1 block">{{ progress.rejected }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Workspace Step Navigation -->
+  <div class="flex items-center gap-2 mt-8 border-b border-slate-200 pb-3 overflow-x-auto">
+    <a href="{{ url_for('recruiter.job_overview', job_id=job.id) }}" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-ink text-white">
+      1. Overview
+    </a>
+    <i class="bi bi-chevron-right text-xs text-slate-300"></i>
+    <a href="{{ url_for('recruiter.applicants', job_id=job.id) }}" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors">
+      2. Applicants ({{ total_applicants }})
+    </a>
+    <i class="bi bi-chevron-right text-xs text-slate-300"></i>
+    <a href="{{ url_for('recruiter.job_shortlist', job_id=job.id) }}" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors flex items-center gap-1">
+      <i class="bi bi-stars text-indigo-600"></i>3. AI Shortlist
+      {% if progress.shortlisted %}
+      <span class="px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-bold">{{ progress.shortlisted }}</span>
+      {% endif %}
+    </a>
+    <i class="bi bi-chevron-right text-xs text-slate-300"></i>
+    <a href="{{ url_for('recruiter.pipeline', job_id=job.id) }}" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors">
+      4. Pipeline
+    </a>
+  </div>
+
+  <!-- Main Content Grid -->
+  <div class="grid lg:grid-cols-3 gap-8 mt-8">
+    
+    <!-- Left 2 Cols: Structured Requirements Analysis + Description -->
+    <div class="lg:col-span-2 space-y-6">
+      
+      <!-- 1. Zentra AI Structured Requirement Analysis Card -->
+      {% if structured_jd %}
+      <div class="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+          <div>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/60 mb-1">
+              <i class="bi bi-stars"></i> Zentra Intelligence Extraction
+            </span>
+            <h2 class="text-lg font-extrabold text-ink">Structured Requirements Breakdown</h2>
+          </div>
+          <span class="text-xs text-slate-400 font-medium">Automatic matching engine criteria</span>
+        </div>
+
+        <div class="space-y-6">
+          
+          <!-- Required Technical Skills -->
+          <div>
+            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+              <i class="bi bi-check2-circle text-emerald-600"></i> Core Required Skills & Competencies
+            </h3>
+            <div class="flex items-center gap-2 flex-wrap">
+              {% set req_skills = structured_jd.required_skills or structured_jd.technical_skills %}
+              {% if req_skills %}
+                {% for s in req_skills %}
+                <span class="text-xs font-bold px-3 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  {{ s }}
+                </span>
+                {% endfor %}
+              {% else %}
+                <span class="text-xs text-slate-400 italic">No specific required keywords detected</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Preferred / Bonus Skills -->
+          {% if structured_jd.bonus_skills %}
+          <div>
+            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+              <i class="bi bi-plus-circle text-indigo-600"></i> Preferred / Nice-to-Have Skills
+            </h3>
+            <div class="flex items-center gap-2 flex-wrap">
+              {% for s in structured_jd.bonus_skills %}
+              <span class="text-xs font-semibold px-3 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200">
+                {{ s }}
+              </span>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Taxonomy Breakdown: Languages, Frameworks, Databases, Tools -->
+          <div class="grid sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+            {% if structured_jd.languages %}
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+              <p class="text-[11px] font-bold text-slate-400 uppercase">Languages</p>
+              <p class="text-xs font-bold text-slate-800 mt-1">{{ structured_jd.languages|join(', ') }}</p>
+            </div>
+            {% endif %}
+            {% if structured_jd.frameworks %}
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+              <p class="text-[11px] font-bold text-slate-400 uppercase">Frameworks & Libraries</p>
+              <p class="text-xs font-bold text-slate-800 mt-1">{{ structured_jd.frameworks|join(', ') }}</p>
+            </div>
+            {% endif %}
+            {% if structured_jd.databases %}
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+              <p class="text-[11px] font-bold text-slate-400 uppercase">Databases</p>
+              <p class="text-xs font-bold text-slate-800 mt-1">{{ structured_jd.databases|join(', ') }}</p>
+            </div>
+            {% endif %}
+            {% if structured_jd.tools %}
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+              <p class="text-[11px] font-bold text-slate-400 uppercase">Cloud & Tools</p>
+              <p class="text-xs font-bold text-slate-800 mt-1">{{ structured_jd.tools|join(', ') }}</p>
+            </div>
+            {% endif %}
+          </div>
+
+          <!-- Experience & Education Criteria -->
+          <div class="grid sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100 text-xs">
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+              <p class="text-[11px] font-bold text-slate-400 uppercase">Experience Requirement</p>
+              <p class="text-xs font-bold text-slate-800 mt-1">
+                {{ structured_jd.experience.min_years or '1+' }} years ({{ structured_jd.experience.seniority|capitalize }})
+              </p>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+              <p class="text-[11px] font-bold text-slate-400 uppercase">Education Degree Target</p>
+              <p class="text-xs font-bold text-slate-800 mt-1">
+                {{ structured_jd.education.degrees|join(' / ') if structured_jd.education.degrees else 'Open degree requirement' }}
+              </p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- 2. Full Job Description & Responsibilities Text -->
+      <div class="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm">
+        <h2 class="text-base font-bold text-ink mb-3">About the Role</h2>
+        <div class="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{{ job.description }}</div>
+
+        {% if job.responsibilities %}
+        <h3 class="text-sm font-bold text-ink mt-6 mb-2">Key Responsibilities</h3>
+        <div class="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{{ job.responsibilities }}</div>
+        {% endif %}
+
+        {% if job.requirements %}
+        <h3 class="text-sm font-bold text-ink mt-6 mb-2">Requirements & Qualifications</h3>
+        <div class="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{{ job.requirements }}</div>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- Right 1 Col: Quick Links & Top AI Candidate Matches -->
+    <div class="space-y-6">
+      
+      <!-- Quick Action Jump Box -->
+      <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+        <h2 class="text-sm font-bold text-ink mb-3">Workspace Actions</h2>
+        <div class="space-y-2">
+          <a href="{{ url_for('recruiter.applicants', job_id=job.id) }}" class="w-full bg-slate-50 hover:bg-lavender hover:text-indigo-700 text-slate-700 text-xs font-semibold p-3 rounded-xl border border-slate-200/80 flex items-center justify-between transition-colors">
+            <span class="flex items-center gap-2"><i class="bi bi-people text-indigo-600"></i> View Applicants Queue</span>
+            <span class="font-bold text-ink">{{ total_applicants }}</span>
+          </a>
+
+          <a href="{{ url_for('recruiter.job_shortlist', job_id=job.id) }}" class="w-full bg-slate-50 hover:bg-lavender hover:text-indigo-700 text-slate-700 text-xs font-semibold p-3 rounded-xl border border-slate-200/80 flex items-center justify-between transition-colors">
+            <span class="flex items-center gap-2"><i class="bi bi-stars text-indigo-600"></i> AI Shortlist Workspace</span>
+            <span class="font-bold text-indigo-700">{{ progress.shortlisted }}</span>
+          </a>
+
+          <a href="{{ url_for('recruiter.pipeline', job_id=job.id) }}" class="w-full bg-slate-50 hover:bg-lavender hover:text-indigo-700 text-slate-700 text-xs font-semibold p-3 rounded-xl border border-slate-200/80 flex items-center justify-between transition-colors">
+            <span class="flex items-center gap-2"><i class="bi bi-kanban text-indigo-600"></i> Open Hiring Pipeline</span>
+            <i class="bi bi-chevron-right text-[10px]"></i>
+          </a>
+
+          <a href="{{ url_for('recruiter.compare_candidates', job_id=job.id) }}" class="w-full bg-slate-50 hover:bg-lavender hover:text-indigo-700 text-slate-700 text-xs font-semibold p-3 rounded-xl border border-slate-200/80 flex items-center justify-between transition-colors">
+            <span class="flex items-center gap-2"><i class="bi bi-columns-gap text-indigo-600"></i> Compare Candidates</span>
+            <i class="bi bi-chevron-right text-[10px]"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- Top AI Candidate Matches for this role -->
+      <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+        <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+          <h2 class="text-sm font-bold text-ink flex items-center gap-1.5">
+            <i class="bi bi-stars text-indigo-600"></i> Top AI Matches
+          </h2>
+          <a href="{{ url_for('recruiter.job_shortlist', job_id=job.id) }}" class="text-[11px] font-semibold text-indigo-600 hover:underline">
+            View all
+          </a>
+        </div>
+
+        {% if not top_candidates %}
+        <p class="text-xs text-slate-400 text-center py-6">No applicant match data yet.</p>
+        {% else %}
+        <div class="space-y-3">
+          {% for app in top_candidates %}
+          <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-3">
+            <div>
+              <a href="{{ url_for('recruiter.candidate_intelligence', candidate_id=app.candidate_id, job_id=job.id) }}" class="text-xs font-bold text-ink hover:text-indigo-600">
+                {{ app.candidate.full_name }}
+              </a>
+              <p class="text-[11px] text-slate-400">{{ app.candidate.headline or 'Candidate' }}</p>
+            </div>
+            <div class="text-right shrink-0">
+              {% if app.match_score %}
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold {{ 'bg-emerald-100 text-emerald-800' if app.match_score >= 80 else 'bg-indigo-100 text-indigo-800' }}">
+                {{ app.match_score|round|int }}%
+              </span>
+              {% else %}
+              <span class="text-[10px] text-slate-400">Scoring...</span>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,843 @@
+import os
+import uuid
+import json
+from flask import Blueprint, render_template, redirect, url_for, flash, current_app, send_file, request, jsonify
+from flask_login import login_required, current_user, logout_user
+from werkzeug.utils import secure_filename
+
+from app import db
+from app.models.resume import Resume
+from app.models.user import User
+from app.models.job import Job
+from app.models.application import Application
+from app.models.career_entry import CareerEntry
+from app.models.saved_job import SavedJob
+from app.models.application_event import ApplicationEvent
+from app.models.notification import Notification
+from app.candidate.forms import ATSCheckForm, ResumeBuilderForm, ProfileSettingsForm, PrivacySettingsForm, DeleteAccountForm
+from app.utils.decorators import role_required
+from app.utils.file_security import inspect_file_magic, generate_secure_stored_filename, FileValidationError
+from app.utils.security import limiter
+from app.ml.resume_parser import extract_text
+from app.ml.ats_scorer import score_resume
+from app.ml.category_classifier import predict_category, category_reference_text
+from app.ml.bullet_improver import improve_resume_bullet
+from app.ml.job_matcher import rank_jobs_for_resume
+from app.ai import ai_service
+from app.utils.resume_pdf import (
+    build_resume_pdf,
+    build_structured_resume_pdf,
+    structured_resume_to_plain_text,
+    parse_resume_to_structured_dict,
+)
+
+candidate_bp = Blueprint("candidate", __name__, template_folder="../templates/candidate")
+
+
+@candidate_bp.route("/dashboard")
+@role_required("candidate")
+def dashboard():
+    applications = (
+        Application.query.filter_by(candidate_id=current_user.id)
+        .order_by(Application.applied_at.desc())
+        .limit(5)
+        .all()
+    )
+    latest_resume = (
+        Resume.query.filter_by(candidate_id=current_user.id)
+        .order_by(Resume.created_at.desc())
+        .first()
+    )
+
+    recommended = []
+    if latest_resume:
+        active_jobs = Job.query.filter_by(status=Job.STATUS_ACTIVE).all()
+        ranked = rank_jobs_for_resume(latest_resume.raw_text, active_jobs)
+        recommended = ranked[:3]
+
+    return render_template(
+        "candidate/dashboard.html",
+        applications=applications,
+        latest_resume=latest_resume,
+        resumes=Resume.query.filter_by(candidate_id=current_user.id).order_by(Resume.created_at.desc()).all(),
+        recommended=recommended,
+    )
+
+
+@candidate_bp.route("/resume-ai", methods=["GET", "POST"])
+@login_required
+@limiter.limit(lambda: current_app.config.get("RATELIMIT_AUTHENTICATED", "120 per minute"))
+def resume_ai():
+    form = ATSCheckForm()
+    active_jobs = Job.query.filter_by(status=Job.STATUS_ACTIVE).order_by(Job.created_at.desc()).all()
+    form.selected_job_id.choices = [("", "-- Select an active platform job --")] + [
+        (str(j.id), f"{j.title} — {j.recruiter_profile.company_name if j.recruiter_profile else 'Company'} ({j.location or 'Remote'})")
+        for j in active_jobs
+    ]
+
+    result = None
+
+    if form.validate_on_submit():
+        resume_text = (form.resume_text.data or "").strip()
+
+        uploaded = form.resume_file.data
+        stored_filename = None
+        original_filename = None
+        if uploaded and uploaded.filename:
+            try:
+                inspect_file_magic(uploaded.stream, uploaded.filename, allowed_category="resume")
+            except FileValidationError as e:
+                flash(f"File upload security error: {str(e)}", "error")
+                return render_template("resume_ai.html", form=form, result=None, active_jobs=active_jobs)
+
+            original_filename = secure_filename(uploaded.filename)
+            stored_filename = generate_secure_stored_filename(original_filename)
+            filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], stored_filename)
+            uploaded.save(filepath)
+            resume_text = extract_text(filepath)
+
+        if not resume_text:
+            flash("Upload a resume file or paste your resume text.", "error")
+            return render_template("resume_ai.html", form=form, result=None, active_jobs=active_jobs)
+
+        analysis_mode = form.analysis_mode.data or "specific_job"
+        job_selection_type = form.job_selection_type.data or "paste"
+        detected_category = None
+        selected_job_obj = None
+
+        if analysis_mode == "general":
+            detected_category = predict_category(resume_text)
+            reference_text = category_reference_text(detected_category) if detected_category else ""
+            result = score_resume(resume_text, reference_text)
+            result["detected_category"] = detected_category
+            result["analysis_mode"] = "general"
+        else:
+            if job_selection_type == "select" and form.selected_job_id.data:
+                try:
+                    selected_job_obj = Job.query.filter_by(
+                        id=int(form.selected_job_id.data),
+                        status=Job.STATUS_ACTIVE
+                    ).first()
+                except (ValueError, TypeError):
+                    selected_job_obj = None
+
+            if selected_job_obj:
+                jd_text = " ".join(filter(None, [selected_job_obj.title, selected_job_obj.description, selected_job_obj.requirements]))
+                result = score_resume(resume_text, jd_text)
+                result["target_job"] = {
+                    "id": selected_job_obj.id,
+                    "title": selected_job_obj.title,
+                    "company": selected_job_obj.recruiter_profile.company_name if selected_job_obj.recruiter_profile else "",
+                }
+            elif form.jd_text.data and form.jd_text.data.strip():
+                jd_text = form.jd_text.data.strip()
+                result = score_resume(resume_text, jd_text)
+            else:
+                detected_category = predict_category(resume_text)
+                reference_text = category_reference_text(detected_category) if detected_category else ""
+                result = score_resume(resume_text, reference_text)
+                result["detected_category"] = detected_category
+
+        if current_user.is_authenticated and current_user.is_candidate:
+            previous_score = (
+                Resume.query.filter_by(candidate_id=current_user.id)
+                .filter(Resume.last_ats_score.isnot(None))
+                .order_by(Resume.created_at.desc())
+                .first()
+            )
+            resume = Resume(
+                candidate_id=current_user.id,
+                source="upload" if stored_filename else "paste",
+                original_filename=original_filename,
+                stored_filename=stored_filename,
+                raw_text=resume_text,
+                name=form.resume_name.data.strip() if form.resume_name.data else None,
+                target_role=form.target_role.data.strip() if form.target_role.data else None,
+                last_ats_score=result["score"],
+                last_matched_keywords=", ".join(result["matched_keywords"]),
+                last_missing_keywords=", ".join(result["missing_keywords"]),
+            )
+            db.session.add(resume)
+            if previous_score and result["score"] > previous_score.last_ats_score:
+                db.session.add(Notification(
+                    candidate_id=current_user.id,
+                    title="Your ATS score improved",
+                    message=f"Your latest analysis scored {result['score']} — up from {round(previous_score.last_ats_score)}.",
+                    link=url_for("candidate.ats_history"),
+                ))
+            db.session.commit()
+
+    history = []
+    improvement = None
+    if current_user.is_authenticated and current_user.is_candidate:
+        history = Resume.query.filter_by(candidate_id=current_user.id).filter(Resume.last_ats_score.isnot(None)).order_by(Resume.created_at.desc()).limit(6).all()
+        if len(history) > 1:
+            improvement = round(history[0].last_ats_score - history[-1].last_ats_score)
+    return render_template("resume_ai.html", form=form, result=result, ats_history=history, ats_improvement=improvement, active_jobs=active_jobs)
+
+
+@candidate_bp.route("/resume-builder", methods=["GET", "POST"])
+@role_required("candidate")
+def resume_builder():
+    if request.method == "POST" and not request.is_json:
+        full_name = request.form.get("full_name") or current_user.full_name or ""
+        title = request.form.get("title") or ""
+        email = request.form.get("email") or current_user.email or ""
+        phone = request.form.get("phone") or ""
+        summary = request.form.get("summary") or ""
+        experience = request.form.get("experience") or ""
+        education = request.form.get("education") or ""
+        skills = request.form.get("skills") or ""
+        resume_name = (request.form.get("resume_name") or f"{full_name or 'My'} Resume").strip()
+        target_role = (request.form.get("target_role") or title).strip() or None
+
+        structured_data = {
+            "__structured__": True,
+            "template": "modern",
+            "personal": {
+                "full_name": full_name,
+                "title": title,
+                "email": email,
+                "phone": phone,
+            },
+            "summary": summary,
+            "experience": [{"title": "", "company": "", "description": experience, "bullets": [b.strip() for b in experience.split("\n") if b.strip()]}] if experience else [],
+            "education": [{"degree": education, "institution": ""}] if education else [],
+            "skills": {"other": [s.strip() for s in skills.split(",") if s.strip()]},
+            "projects": [],
+            "certifications": [],
+            "achievements": [],
+        }
+
+        resume = Resume(
+            candidate_id=current_user.id,
+            source="builder",
+            raw_text=json.dumps(structured_data),
+            name=resume_name,
+            target_role=target_role,
+        )
+        db.session.add(resume)
+        db.session.commit()
+        flash("Resume saved successfully.", "success")
+
+        pdf_buffer = build_structured_resume_pdf(structured_data, template="modern")
+        safe_name = (full_name or "resume").strip().replace(" ", "_")
+        return send_file(
+            pdf_buffer,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"{safe_name}_resume.pdf",
+        )
+
+    resume_id = request.args.get("resume_id", type=int)
+    target_job_id = request.args.get("target_job_id", type=int)
+
+    resume_obj = None
+    if resume_id:
+        resume_obj = Resume.query.filter_by(id=resume_id, candidate_id=current_user.id).first()
+
+    active_jobs = Job.query.filter_by(status=Job.STATUS_ACTIVE).order_by(Job.created_at.desc()).all()
+    target_job = None
+    if target_job_id:
+        target_job = Job.query.filter_by(id=target_job_id, status=Job.STATUS_ACTIVE).first()
+
+    if resume_obj:
+        initial_data = parse_resume_to_structured_dict(resume_obj.raw_text, resume_obj.name, resume_obj.target_role)
+    else:
+        # Prepopulate with current user profile information
+        initial_data = {
+            "__structured__": True,
+            "template": "modern",
+            "personal": {
+                "full_name": current_user.full_name or "",
+                "title": current_user.headline or "",
+                "email": current_user.email or "",
+                "phone": current_user.phone or "",
+                "location": current_user.location or "",
+                "linkedin": current_user.linkedin_url or "",
+                "github": current_user.github_url or "",
+                "portfolio": current_user.portfolio_url or "",
+            },
+            "summary": current_user.bio or "",
+            "experience": [
+                {
+                    "title": e.title,
+                    "company": e.organization or "",
+                    "location": e.location or "",
+                    "start_date": e.start_date or "",
+                    "end_date": e.end_date or "",
+                    "current": False,
+                    "bullets": [b.strip() for b in e.description.split("\n") if b.strip()] if e.description else []
+                }
+                for e in current_user.career_entries if e.entry_type == "experience"
+            ],
+            "education": [
+                {
+                    "degree": ed.title,
+                    "field": "",
+                    "institution": ed.organization or "",
+                    "year": ed.end_date or "",
+                    "gpa": ""
+                }
+                for ed in current_user.career_entries if ed.entry_type == "education"
+            ],
+            "skills": {
+                "languages": [],
+                "frameworks": [],
+                "databases": [],
+                "tools": [],
+                "cloud": [],
+                "other": [s.strip() for s in (current_user.skills or "").split(",") if s.strip()],
+            },
+            "projects": [
+                {
+                    "name": p.title,
+                    "role": "",
+                    "technologies": [],
+                    "link": p.credential_url or "",
+                    "github": "",
+                    "bullets": [b.strip() for b in p.description.split("\n") if b.strip()] if p.description else []
+                }
+                for p in current_user.career_entries if p.entry_type == "project"
+            ],
+            "certifications": [
+                {
+                    "name": c.title,
+                    "issuer": c.organization or "",
+                    "year": c.end_date or "",
+                    "url": c.credential_url or ""
+                }
+                for c in current_user.career_entries if c.entry_type == "certification"
+            ],
+            "achievements": [],
+        }
+
+    return render_template(
+        "candidate/resume_builder.html",
+        resume_obj=resume_obj,
+        target_job=target_job,
+        active_jobs=active_jobs,
+        initial_data=initial_data,
+    )
+
+
+@candidate_bp.route("/api/resume-builder/save", methods=["POST"])
+@role_required("candidate")
+@limiter.limit(lambda: current_app.config.get("RATELIMIT_AUTHENTICATED", "120 per minute"))
+def api_save_resume_builder():
+    data = request.get_json(silent=True) or {}
+    resume_data = data.get("resume_data")
+    if not isinstance(resume_data, dict):
+        return jsonify({"status": "error", "message": "Invalid resume data structure"}), 400
+
+    resume_id = data.get("resume_id")
+    resume_name = str(data.get("name") or "My Resume").strip()[:150]
+    target_role = str(data.get("target_role") or "").strip()[:150] or None
+    target_job_id = data.get("target_job_id")
+
+    # Serialize structured data into raw_text
+    serialized_text = json.dumps(resume_data)
+    plain_text = structured_resume_to_plain_text(resume_data)
+
+    # Compute ATS Score
+    target_job = None
+    if target_job_id:
+        try:
+            target_job = Job.query.filter_by(
+                id=int(target_job_id),
+                status=Job.STATUS_ACTIVE
+            ).first()
+        except (ValueError, TypeError):
+            pass
+
+    if target_job:
+        jd_text = " ".join(filter(None, [target_job.title, target_job.description, target_job.requirements]))
+        ats_result = score_resume(plain_text, jd_text)
+    else:
+        detected_category = predict_category(plain_text)
+        reference_text = category_reference_text(detected_category) if detected_category else ""
+        ats_result = score_resume(plain_text, reference_text)
+        ats_result["detected_category"] = detected_category
+
+    # Save or update Resume
+    if resume_id:
+        resume = Resume.query.filter_by(id=resume_id, candidate_id=current_user.id).first()
+        if not resume:
+            return jsonify({"status": "error", "message": "Resume not found"}), 404
+        resume.name = resume_name
+        resume.target_role = target_role
+        resume.raw_text = serialized_text
+        resume.last_ats_score = ats_result["score"]
+        resume.last_matched_keywords = ", ".join(ats_result.get("matched_keywords", []))
+        resume.last_missing_keywords = ", ".join(ats_result.get("missing_keywords", []))
+    else:
+        resume = Resume(
+            candidate_id=current_user.id,
+            source="builder",
+            raw_text=serialized_text,
+            name=resume_name,
+            target_role=target_role,
+            last_ats_score=ats_result["score"],
+            last_matched_keywords=", ".join(ats_result.get("matched_keywords", [])),
+            last_missing_keywords=", ".join(ats_result.get("missing_keywords", [])),
+        )
+        db.session.add(resume)
+
+    db.session.commit()
+
+    return jsonify({
+        "status": "success",
+        "resume_id": resume.id,
+        "ats_result": ats_result,
+        "updated_at": resume.created_at.strftime("%d %b %Y, %H:%M"),
+    })
+
+
+@candidate_bp.route("/api/improve-bullet", methods=["POST"])
+@role_required("candidate")
+@limiter.limit(lambda: current_app.config.get("RATELIMIT_AUTHENTICATED", "120 per minute"))
+def api_improve_bullet():
+    data = request.get_json(silent=True) or {}
+    bullet = str(data.get("bullet") or "").strip()
+    title = str(data.get("title") or "").strip()
+    company = str(data.get("company") or "").strip()
+
+    if not bullet:
+        return jsonify({"status": "error", "message": "Bullet text is required"}), 400
+    if len(bullet) > 2000:
+        return jsonify({"status": "error", "message": "Bullet text too long (max 2000 characters)"}), 400
+    if len(title) > 200:
+        return jsonify({"status": "error", "message": "Title too long (max 200 characters)"}), 400
+    if len(company) > 200:
+        return jsonify({"status": "error", "message": "Company name too long (max 200 characters)"}), 400
+
+    improved, provider_used = ai_service.improve_bullet(bullet, title=title, company=company)
+    return jsonify({
+        "status": "success",
+        "original": bullet,
+        "suggestion": improved,
+        "provider_used": provider_used,
+    })
+
+
+@candidate_bp.route("/api/generate-summary", methods=["POST"])
+@role_required("candidate")
+@limiter.limit(lambda: current_app.config.get("RATELIMIT_AUTHENTICATED", "120 per minute"))
+def api_generate_summary():
+    data = request.get_json(silent=True) or {}
+    headline = str(data.get("headline") or current_user.headline or "").strip()[:200]
+    target_role = str(data.get("target_role") or "").strip()[:200]
+    raw_skills = data.get("skills")
+    if isinstance(raw_skills, list):
+        skills = [str(s).strip()[:100] for s in raw_skills[:30] if str(s).strip()]
+    else:
+        skills = [s.strip() for s in (current_user.skills or "").split(",") if s.strip()][:30]
+
+    raw_snippets = data.get("experience_snippets")
+    if isinstance(raw_snippets, list):
+        experience_snippets = [str(sn).strip()[:500] for sn in raw_snippets[:15] if str(sn).strip()]
+    else:
+        experience_snippets = [
+            f"{e.title} at {e.organization}" for e in current_user.career_entries if e.entry_type == "experience"
+        ][:15]
+
+    summary, provider_used = ai_service.generate_summary(
+        headline=headline,
+        skills=skills,
+        experience_snippets=experience_snippets,
+        target_role=target_role,
+    )
+    return jsonify({
+        "status": "success",
+        "summary": summary,
+        "provider_used": provider_used,
+    })
+
+
+
+@candidate_bp.route("/api/analyze-live", methods=["POST"])
+@role_required("candidate")
+@limiter.limit(lambda: current_app.config.get("RATELIMIT_AUTHENTICATED", "120 per minute"))
+def api_analyze_live():
+    data = request.get_json(silent=True) or {}
+    resume_data = data.get("resume_data")
+    if not isinstance(resume_data, dict):
+        resume_data = {}
+    target_job_id = data.get("target_job_id")
+    custom_jd = str(data.get("jd_text") or "").strip()
+    if len(custom_jd) > 50000:
+        return jsonify({"status": "error", "message": "Job description too long (max 50000 chars)"}), 400
+
+    plain_text = structured_resume_to_plain_text(resume_data)
+
+    target_job = None
+    if target_job_id:
+        try:
+            target_job = Job.query.filter_by(
+                id=int(target_job_id),
+                status=Job.STATUS_ACTIVE
+            ).first()
+        except (ValueError, TypeError):
+            pass
+
+    if target_job:
+        jd_text = " ".join(filter(None, [target_job.title, target_job.description, target_job.requirements]))
+        ats_result = score_resume(plain_text, jd_text)
+    elif custom_jd:
+        ats_result = score_resume(plain_text, custom_jd)
+    else:
+        detected_category = predict_category(plain_text)
+        reference_text = category_reference_text(detected_category) if detected_category else ""
+        ats_result = score_resume(plain_text, reference_text)
+        ats_result["detected_category"] = detected_category
+
+    return jsonify({
+        "status": "success",
+        "ats_result": ats_result,
+    })
+
+
+@candidate_bp.route("/my-resumes")
+@role_required("candidate")
+def my_resumes():
+    resumes = Resume.query.filter_by(candidate_id=current_user.id).order_by(Resume.created_at.desc()).all()
+    return render_template("candidate/my_resumes.html", resumes=resumes)
+
+
+@candidate_bp.route("/resumes/<int:resume_id>/duplicate", methods=["POST"])
+@role_required("candidate")
+def duplicate_resume(resume_id):
+    original = Resume.query.filter_by(id=resume_id, candidate_id=current_user.id).first_or_404()
+    copy_name = f"Copy of {original.name or 'Resume'}"
+    copy_resume = Resume(
+        candidate_id=current_user.id,
+        source=original.source,
+        original_filename=original.original_filename,
+        stored_filename=original.stored_filename,
+        raw_text=original.raw_text,
+        name=copy_name,
+        target_role=original.target_role,
+        last_ats_score=original.last_ats_score,
+        last_matched_keywords=original.last_matched_keywords,
+        last_missing_keywords=original.last_missing_keywords,
+    )
+    db.session.add(copy_resume)
+    db.session.commit()
+    flash(f"Resume duplicated as '{copy_name}'.", "success")
+    return redirect(url_for("candidate.my_resumes"))
+
+
+@candidate_bp.route("/resumes/<int:resume_id>/delete", methods=["POST"])
+@role_required("candidate")
+def delete_resume(resume_id):
+    resume = Resume.query.filter_by(id=resume_id, candidate_id=current_user.id).first_or_404()
+    stored_name = resume.stored_filename
+    db.session.delete(resume)
+    db.session.commit()
+
+    # Reference-aware cleanup: delete physical file ONLY if no other resume uses it
+    if stored_name:
+        remaining_count = Resume.query.filter_by(stored_filename=stored_name).count()
+        if remaining_count == 0:
+            upload_folder = os.path.abspath(current_app.config["UPLOAD_FOLDER"])
+            file_path = os.path.abspath(os.path.join(upload_folder, stored_name))
+            if os.path.commonpath([upload_folder, file_path]) == upload_folder and os.path.isfile(file_path):
+                try:
+                    os.remove(file_path)
+                except OSError:
+                    pass
+
+    flash("Resume deleted.", "info")
+    return redirect(url_for("candidate.my_resumes"))
+
+
+@candidate_bp.route("/resumes/<int:resume_id>/pdf")
+@role_required("candidate")
+def download_resume_pdf(resume_id):
+    resume = Resume.query.filter_by(id=resume_id, candidate_id=current_user.id).first_or_404()
+    structured = parse_resume_to_structured_dict(resume.raw_text, resume.name, resume.target_role)
+    template = structured.get("template", "modern")
+    pdf_buffer = build_structured_resume_pdf(structured, template=template)
+
+    safe_name = (structured.get("personal", {}).get("full_name") or resume.name or "resume").strip().replace(" ", "_")
+    return send_file(
+        pdf_buffer,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=f"{safe_name}_resume.pdf",
+    )
+
+
+@candidate_bp.route("/resume-builder/download-pdf", methods=["POST"])
+@role_required("candidate")
+def export_builder_pdf():
+    data = request.get_json() or {}
+    resume_data = data.get("resume_data") or {}
+    template = data.get("template", "modern")
+
+    pdf_buffer = build_structured_resume_pdf(resume_data, template=template)
+    safe_name = (resume_data.get("personal", {}).get("full_name") or "resume").strip().replace(" ", "_")
+    return send_file(
+        pdf_buffer,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=f"{safe_name}_resume.pdf",
+    )
+
+
+@candidate_bp.route("/settings", methods=["GET", "POST"])
+@role_required("candidate")
+def settings():
+    form = ProfileSettingsForm(obj=current_user)
+
+    if form.validate_on_submit():
+        current_user.full_name = form.full_name.data.strip()
+        current_user.headline = form.headline.data
+        current_user.phone = form.phone.data
+        current_user.location = form.location.data
+        current_user.skills = form.skills.data
+        current_user.bio = form.bio.data
+        for field in ("github_url", "linkedin_url", "portfolio_url", "preferred_job_role", "preferred_location", "work_preference", "expected_salary", "experience_level"):
+            setattr(current_user, field, getattr(form, field).data or None)
+        uploaded = form.avatar.data
+        if uploaded and uploaded.filename:
+            try:
+                inspect_file_magic(uploaded.stream, uploaded.filename, allowed_category="avatar")
+            except FileValidationError as e:
+                flash(f"Avatar upload security error: {str(e)}", "error")
+                return redirect(url_for("candidate.settings"))
+
+            clean_name = secure_filename(uploaded.filename)
+            filename = f"avatar_{generate_secure_stored_filename(clean_name)}"
+            uploaded.save(os.path.join(current_app.config["UPLOAD_FOLDER"], filename))
+            current_user.avatar_filename = filename
+        db.session.commit()
+        flash("Profile updated.", "success")
+        return redirect(url_for("candidate.settings"))
+
+    career_entries = {
+        entry_type: [entry for entry in current_user.career_entries if entry.entry_type == entry_type]
+        for entry_type in CareerEntry.TYPES
+    }
+    return render_template("candidate/settings.html", form=form, career_entries=career_entries)
+
+
+@candidate_bp.route("/applications")
+@role_required("candidate")
+def applications():
+    status = request.args.get("status", "all")
+    query = Application.query.filter_by(candidate_id=current_user.id)
+    if status != "all" and status in Application.STATUSES:
+        query = query.filter_by(status=status)
+    return render_template("candidate/applications.html", applications=query.order_by(Application.applied_at.desc()).all(), active_status=status)
+
+
+@candidate_bp.route("/ats-history")
+@role_required("candidate")
+def ats_history():
+    history = Resume.query.filter_by(candidate_id=current_user.id).filter(Resume.last_ats_score.isnot(None)).order_by(Resume.created_at.desc()).all()
+    improvement = round(history[0].last_ats_score - history[-1].last_ats_score) if len(history) > 1 else None
+    return render_template("candidate/ats_history.html", history=history, improvement=improvement)
+
+
+@candidate_bp.route("/notifications")
+@role_required("candidate")
+def notifications():
+    items = current_user.notifications
+    for item in items:
+        item.is_read = True
+    db.session.commit()
+    return render_template("candidate/notifications.html", notifications=items)
+
+
+@candidate_bp.route("/privacy", methods=["GET", "POST"])
+@role_required("candidate")
+def privacy_settings():
+    privacy_form = PrivacySettingsForm(obj=current_user)
+    delete_form = DeleteAccountForm()
+    if privacy_form.validate_on_submit() and privacy_form.submit.data:
+        slug = (privacy_form.public_slug.data or "").strip().lower() or _default_public_slug()
+        taken = User.query.filter(User.public_slug == slug, User.id != current_user.id).first()
+        if taken:
+            privacy_form.public_slug.errors.append("That profile address is already taken. Try another.")
+        else:
+            current_user.public_slug = slug
+            current_user.public_profile_enabled = privacy_form.public_profile_enabled.data
+            current_user.recruiter_discoverable = privacy_form.recruiter_discoverable.data
+            current_user.public_resume_enabled = privacy_form.public_resume_enabled.data
+            db.session.commit()
+            flash("Privacy settings saved.", "success")
+            return redirect(url_for("candidate.privacy_settings"))
+    return render_template("candidate/privacy_settings.html", privacy_form=privacy_form, delete_form=delete_form)
+
+
+@candidate_bp.route("/delete-account", methods=["POST"])
+@role_required("candidate")
+def delete_account():
+    form = DeleteAccountForm()
+    if not form.validate_on_submit() or form.confirmation.data.strip() != "DELETE":
+        flash("To delete your account, type DELETE exactly as shown.", "error")
+        return redirect(url_for("candidate.privacy_settings"))
+
+    avatar_file = current_user.avatar_filename
+    resume_filenames = [r.stored_filename for r in current_user.resumes if r.stored_filename]
+
+    db.session.delete(current_user)
+    db.session.commit()
+    logout_user()
+
+    upload_folder = os.path.abspath(current_app.config["UPLOAD_FOLDER"])
+
+    # Clean avatar file
+    if avatar_file:
+        file_path = os.path.abspath(os.path.join(upload_folder, avatar_file))
+        if os.path.commonpath([upload_folder, file_path]) == upload_folder and os.path.isfile(file_path):
+            try:
+                os.remove(file_path)
+            except OSError:
+                pass
+
+    # Reference-aware cleanup for resumes: only delete if no remaining resume references it
+    for r_file in resume_filenames:
+        still_referenced = Resume.query.filter_by(stored_filename=r_file).first() is not None
+        if not still_referenced:
+            file_path = os.path.abspath(os.path.join(upload_folder, r_file))
+            if os.path.commonpath([upload_folder, file_path]) == upload_folder and os.path.isfile(file_path):
+                try:
+                    os.remove(file_path)
+                except OSError:
+                    pass
+
+    flash("Your account and stored profile data have been deleted.", "success")
+    return redirect(url_for("main.landing"))
+
+
+def _default_public_slug():
+    base = secure_filename(current_user.full_name).lower().replace("_", "-").strip("-") or "candidate"
+    slug = base
+    suffix = 2
+    while User.query.filter(User.public_slug == slug, User.id != current_user.id).first():
+        slug = f"{base}-{suffix}"
+        suffix += 1
+    return slug
+
+
+@candidate_bp.route("/applications/<int:application_id>")
+@role_required("candidate")
+def application_detail(application_id):
+    application = Application.query.filter_by(id=application_id, candidate_id=current_user.id).first_or_404()
+    return render_template("candidate/application_detail.html", application=application)
+
+
+@candidate_bp.route("/jobs/<int:job_id>/save", methods=["POST"])
+@role_required("candidate")
+def save_job(job_id):
+    job = Job.query.filter_by(id=job_id, status=Job.STATUS_ACTIVE).first_or_404()
+    if not SavedJob.query.filter_by(candidate_id=current_user.id, job_id=job.id).first():
+        db.session.add(SavedJob(candidate_id=current_user.id, job_id=job.id))
+        db.session.commit()
+        flash("Job saved. You can find it under Saved jobs.", "success")
+    return redirect(request.referrer or url_for("main.job_detail", job_id=job.id))
+
+
+@candidate_bp.route("/jobs/<int:job_id>/unsave", methods=["POST"])
+@role_required("candidate")
+def unsave_job(job_id):
+    saved = SavedJob.query.filter_by(candidate_id=current_user.id, job_id=job_id).first_or_404()
+    db.session.delete(saved)
+    db.session.commit()
+    flash("Job removed from saved jobs.", "info")
+    return redirect(request.referrer or url_for("candidate.saved_jobs"))
+
+
+@candidate_bp.route("/saved-jobs")
+@role_required("candidate")
+def saved_jobs():
+    saved = SavedJob.query.filter_by(candidate_id=current_user.id).order_by(SavedJob.created_at.desc()).all()
+    resume = Resume.query.filter_by(candidate_id=current_user.id).order_by(Resume.created_at.desc()).first()
+    items = [(item, score_resume(resume.raw_text, " ".join(filter(None, [item.job.description, item.job.requirements])))["score"] if resume else None) for item in saved]
+    return render_template("candidate/saved_jobs.html", saved_jobs=items)
+
+
+@candidate_bp.route("/profile/career-entry", methods=["POST"])
+@role_required("candidate")
+def add_career_entry():
+    entry_type = (request.form.get("entry_type") or "").strip()
+    title = (request.form.get("title") or "").strip()
+    if entry_type not in CareerEntry.TYPES or not title:
+        flash("Choose an entry type and enter its title before saving.", "error")
+        return redirect(url_for("candidate.settings"))
+
+    entry = CareerEntry(
+        candidate_id=current_user.id,
+        entry_type=entry_type,
+        title=title,
+        organization=(request.form.get("organization") or "").strip() or None,
+        location=(request.form.get("entry_location") or "").strip() or None,
+        start_date=(request.form.get("start_date") or "").strip() or None,
+        end_date=(request.form.get("end_date") or "").strip() or None,
+        description=(request.form.get("description") or "").strip() or None,
+        credential_url=(request.form.get("credential_url") or "").strip() or None,
+    )
+    db.session.add(entry)
+    db.session.commit()
+    flash(f"{entry_type.title()} added to your profile.", "success")
+    return redirect(url_for("candidate.settings") + "#career")
+
+
+@candidate_bp.route("/profile/career-entry/<int:entry_id>/delete", methods=["POST"])
+@role_required("candidate")
+def delete_career_entry(entry_id):
+    entry = CareerEntry.query.filter_by(id=entry_id, candidate_id=current_user.id).first_or_404()
+    db.session.delete(entry)
+    db.session.commit()
+    flash("Career entry removed.", "success")
+    return redirect(url_for("candidate.settings") + "#career")
+
+
+@candidate_bp.route("/jobs/<int:job_id>/apply", methods=["POST"])
+@role_required("candidate")
+def apply(job_id):
+    job = Job.query.get_or_404(job_id)
+
+    # Server-side job status enforcement — never rely on frontend button visibility
+    if job.status != Job.STATUS_ACTIVE:
+        flash("This job is no longer accepting applications.", "error")
+        return redirect(url_for("main.job_detail", job_id=job.id))
+
+    resume = (
+        Resume.query.filter_by(candidate_id=current_user.id)
+        .order_by(Resume.created_at.desc())
+        .first()
+    )
+    if resume is None:
+        flash("Add a resume via Resume AI before applying.", "error")
+        return redirect(url_for("candidate.resume_ai"))
+
+    already_applied = Application.query.filter_by(job_id=job.id, candidate_id=current_user.id).first()
+    if already_applied:
+        flash("You've already applied to this job.", "info")
+        return redirect(url_for("main.job_detail", job_id=job.id))
+
+    jd_text = " ".join(filter(None, [job.description, job.requirements]))
+    result = score_resume(resume.raw_text, jd_text)
+
+    application = Application(
+        job_id=job.id,
+        candidate_id=current_user.id,
+        resume_id=resume.id,
+        match_score=result["score"],
+    )
+    db.session.add(application)
+    db.session.flush()
+    db.session.add(ApplicationEvent(application_id=application.id, status=Application.STATUS_APPLIED, note="Application submitted"))
+    db.session.add(Notification(
+        candidate_id=current_user.id,
+        title="Application submitted",
+        message=f"Your application for {job.title} at {job.recruiter_profile.company_name} was submitted.",
+        link=url_for("candidate.application_detail", application_id=application.id),
+    ))
+    db.session.commit()
+    flash("Application submitted.", "success")
+    return redirect(url_for("main.job_detail", job_id=job.id))
+

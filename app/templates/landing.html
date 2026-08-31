@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% set active_nav = 'home' %}
+{% block title %}Zentra — Land Your Dream Job with AI-Powered Precision{% endblock %}
+
+{% block content %}
+<section class="grid-bg border-b border-slate-100">
+  <div class="max-w-7xl mx-auto px-6 lg:px-10 pt-20 pb-16 text-center fade-up">
+    <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight leading-[1.08] max-w-3xl mx-auto">
+      Land your dream job with <span class="text-indigo-600">AI-powered precision.</span>
+    </h1>
+    <p class="mt-6 text-lg text-slate-500 max-w-xl mx-auto">
+      Optimize your resume for ATS, discover personalised job matches, and connect with recruiters who are actually hiring.
+    </p>
+    <div class="mt-8 flex items-center justify-center gap-3">
+      <a href="{{ url_for('candidate.resume_ai') }}" class="bg-ink text-white text-sm font-semibold px-6 py-3 rounded-lg hover:bg-slate-800 transition-colors">Check my ATS score</a>
+      <a href="{{ url_for('main.jobs') }}" class="bg-white border border-slate-200 text-sm font-semibold px-6 py-3 rounded-lg hover:border-slate-300 transition-colors">Browse jobs</a>
+    </div>
+  </div>
+</section>
+
+<section class="max-w-7xl mx-auto px-6 lg:px-10 py-20">
+  <div class="grid lg:grid-cols-2 gap-12 items-center">
+    <div class="fade-up">
+      <div class="bg-white border border-slate-200 rounded-2xl shadow-xl shadow-slate-200/60 p-6">
+        <div class="flex items-center justify-between mb-5">
+          <div class="flex-1 mr-4">
+            <div class="h-2 rounded-full bg-slate-100 overflow-hidden">
+              <div class="h-full bg-indigo-600 rounded-full" style="width:85%"></div>
+            </div>
+          </div>
+          <div class="w-12 h-12 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0">85</div>
+        </div>
+        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Keywords detected</p>
+        <div class="flex flex-wrap gap-2 mb-5">
+          <span class="text-xs font-medium bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full">Machine Learning</span>
+          <span class="text-xs font-medium bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full">Python</span>
+          <span class="text-xs font-medium bg-rose-50 text-rose-600 px-2.5 py-1 rounded-full">Missing: React</span>
+        </div>
+        <div class="bg-slate-50 rounded-xl p-4 flex gap-3">
+          <i class="bi bi-stars text-indigo-600 shrink-0"></i>
+          <p class="text-sm text-slate-600"><span class="font-semibold text-ink">AI suggestion —</span> Quantify impact in "Experience". Instead of "Improved performance", try "Increased processing speed by 40%".</p>
+        </div>
+      </div>
+    </div>
+    <div class="fade-up fade-up-d1">
+      <h2 class="text-3xl font-extrabold tracking-tight mb-4">Beat the bots. Impress the humans.</h2>
+      <p class="text-slate-500 mb-6 leading-relaxed">Over 75% of resumes are rejected by applicant tracking systems before a human ever sees them. Our AI scans your resume against real job descriptions, catching missing keywords and structural flaws instantly.</p>
+      <ul class="space-y-3">
+        <li class="flex items-center gap-3 text-slate-700"><span class="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs shrink-0">✓</span>Instant ATS compatibility scoring</li>
+        <li class="flex items-center gap-3 text-slate-700"><span class="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs shrink-0">✓</span>Actionable formatting suggestions</li>
+        <li class="flex items-center gap-3 text-slate-700"><span class="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs shrink-0">✓</span>Keyword gap analysis</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="bg-lavender border-y border-slate-100">
+  <div class="max-w-7xl mx-auto px-6 lg:px-10 py-20 text-center">
+    <h2 class="text-3xl font-extrabold tracking-tight">The pathway to placement</h2>
+    <p class="text-slate-500 mt-2">Four steps from application to offer letter.</p>
+    <div class="mt-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div class="fade-up">
+        <div class="w-14 h-14 mx-auto rounded-full bg-white border border-slate-200 flex items-center justify-center text-xl mb-4"><i class="bi bi-file-earmark-arrow-up text-indigo-600"></i></div>
+        <h3 class="font-semibold mb-1">Upload resume</h3>
+        <p class="text-sm text-slate-500">Drag and drop your CV in PDF or DOCX format.</p>
+      </div>
+      <div class="fade-up fade-up-d1">
+        <div class="w-14 h-14 mx-auto rounded-full bg-white border border-slate-200 flex items-center justify-center text-xl mb-4"><i class="bi bi-search text-indigo-600"></i></div>
+        <h3 class="font-semibold mb-1">AI analysis</h3>
+        <p class="text-sm text-slate-500">Our engine parses your experience against industry benchmarks.</p>
+      </div>
+      <div class="fade-up fade-up-d2">
+        <div class="w-14 h-14 mx-auto rounded-full bg-white border border-slate-200 flex items-center justify-center text-xl mb-4"><i class="bi bi-lightning-charge text-indigo-600"></i></div>
+        <h3 class="font-semibold mb-1">Optimize</h3>
+        <p class="text-sm text-slate-500">Apply AI-generated recommendations to boost your score.</p>
+      </div>
+      <div class="fade-up fade-up-d3">
+        <div class="w-14 h-14 mx-auto rounded-full bg-white border border-slate-200 flex items-center justify-center text-xl mb-4"><i class="bi bi-people text-indigo-600"></i></div>
+        <h3 class="font-semibold mb-1">Match &amp; connect</h3>
+        <p class="text-sm text-slate-500">Get introduced to companies where you're a strong fit.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="jobs" class="bg-ink">
+  <div class="max-w-7xl mx-auto px-6 lg:px-10 py-20 grid lg:grid-cols-2 gap-10 items-center">
+    <div class="fade-up">
+      <h2 class="text-3xl font-extrabold tracking-tight text-white mb-4">Opportunities, curated for you.</h2>
+      <p class="text-slate-400 mb-6 leading-relaxed">Stop scrolling through irrelevant listings. Our matching engine cross-references your optimised profile with live roles to surface high-probability matches.</p>
+      <a href="{{ url_for('main.jobs') }}" class="inline-block bg-white text-ink text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-slate-100 transition-colors">View all matches</a>
+    </div>
+    <div class="space-y-4 fade-up fade-up-d1">
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex items-center justify-between">
+        <div>
+          <p class="text-white font-semibold">Senior AI Engineer</p>
+          <p class="text-sm text-slate-400">TechCorp Solutions · Remote</p>
+        </div>
+        <span class="w-10 h-10 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center shrink-0">92%</span>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex items-center justify-between">
+        <div>
+          <p class="text-white font-semibold">Machine Learning Lead</p>
+          <p class="text-sm text-slate-400">DataSphere · New York, NY</p>
+        </div>
+        <span class="w-10 h-10 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center shrink-0">88%</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="recruiters" class="bg-lavender">
+  <div class="max-w-7xl mx-auto px-6 lg:px-10 py-20 text-center">
+    <p class="text-indigo-600 font-semibold text-sm uppercase tracking-wide">For employers</p>
+    <h2 class="text-3xl font-extrabold tracking-tight mt-2">Hire smarter with AI.</h2>
+    <p class="text-slate-500 mt-2 max-w-xl mx-auto">Reduce time-to-hire and get automated screening, unbiased candidate matching, and full control over your hiring pipeline.</p>
+    <div class="mt-12 grid sm:grid-cols-2 gap-6 max-w-3xl mx-auto text-left">
+      <div class="bg-white rounded-xl p-6 border border-slate-200 fade-up">
+        <i class="bi bi-funnel text-2xl text-indigo-600"></i>
+        <h3 class="font-semibold mt-3 mb-1">Automated screening</h3>
+        <p class="text-sm text-slate-500">Filter out unqualified applicants instantly while surfacing hidden gems based on skill matching.</p>
+      </div>
+      <div class="bg-white rounded-xl p-6 border border-slate-200 fade-up fade-up-d1">
+        <i class="bi bi-graph-up-arrow text-2xl text-indigo-600"></i>
+        <h3 class="font-semibold mt-3 mb-1">Predictive success</h3>
+        <p class="text-sm text-slate-500">Our models estimate candidate fit and longevity based on historical placement data.</p>
+      </div>
+    </div>
+    <a href="{{ url_for('recruiter.register') }}" class="inline-block mt-10 bg-ink text-white text-sm font-semibold px-6 py-3 rounded-lg hover:bg-slate-800 transition-colors">Get recruiter access</a>
+  </div>
+</section>
+
+<section class="max-w-7xl mx-auto px-6 lg:px-10 py-16">
+  <div class="grid grid-cols-3 divide-x divide-slate-200 text-center">
+    <div class="fade-up"><p class="text-4xl font-extrabold tracking-tight">10k+</p><p class="text-sm text-slate-500 mt-1">Success stories</p></div>
+    <div class="fade-up fade-up-d1"><p class="text-4xl font-extrabold tracking-tight">500+</p><p class="text-sm text-slate-500 mt-1">Partner companies</p></div>
+    <div class="fade-up fade-up-d2"><p class="text-4xl font-extrabold tracking-tight">95%</p><p class="text-sm text-slate-500 mt-1">ATS pass rate</p></div>
+  </div>
+</section>
+
+<section class="bg-indigo-50">
+  <div class="max-w-7xl mx-auto px-6 lg:px-10 py-20 text-center">
+    <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight max-w-lg mx-auto">Ready to take the next step in your career?</h2>
+    <a href="{{ url_for('auth.login') }}" class="inline-block mt-8 bg-ink text-white text-sm font-semibold px-6 py-3 rounded-lg hover:bg-slate-800 transition-colors">Get started for free</a>
+  </div>
+</section>
+{% endblock %}

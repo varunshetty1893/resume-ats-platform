@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% set active_nav = 'about' %}
+{% block title %}Zentra — About{% endblock %}
+
+{% block content %}
+<section class="grid-bg border-b border-slate-100">
+  <div class="max-w-4xl mx-auto px-6 lg:px-10 pt-20 pb-16 text-center fade-up">
+    <p class="text-indigo-600 font-semibold text-sm uppercase tracking-wide">About Zentra</p>
+    <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight leading-[1.1] mt-3">
+      Built for the gap between a good resume and a good hire.
+    </h1>
+    <p class="mt-6 text-lg text-slate-500 max-w-2xl mx-auto">
+      Zentra started with a simple frustration: qualified people getting filtered out before a human ever reads their resume. We built the tools to close that gap, for candidates and recruiters alike.
+    </p>
+  </div>
+</section>
+
+<section class="max-w-7xl mx-auto px-6 lg:px-10 py-20">
+  <div class="grid lg:grid-cols-2 gap-12 items-center">
+    <div class="fade-up">
+      <p class="text-indigo-600 font-semibold text-sm uppercase tracking-wide mb-3">Our mission</p>
+      <h2 class="text-3xl font-extrabold tracking-tight mb-4">Precision over guesswork, on both sides of the table.</h2>
+      <p class="text-slate-500 leading-relaxed mb-4">Over 75% of resumes never reach a human reviewer — they're filtered out by applicant tracking systems on keyword and formatting mismatches alone. Meanwhile recruiters wade through hundreds of applications to find the handful that actually fit.</p>
+      <p class="text-slate-500 leading-relaxed">Zentra applies the same AI-driven matching to both sides: candidates get a clear, actionable read on how their resume will actually perform, and recruiters get a shortlist that's already been filtered for genuine fit.</p>
+    </div>
+    <div class="fade-up fade-up-d1 grid grid-cols-2 gap-5">
+      <div class="bg-lavender rounded-2xl p-6"><i class="bi bi-file-earmark-text text-2xl text-indigo-600"></i><p class="text-3xl font-extrabold tracking-tight mt-4">85%</p><p class="text-sm text-slate-500 mt-1">Average ATS score improvement after optimization</p></div>
+      <div class="bg-lavender rounded-2xl p-6 mt-8"><i class="bi bi-people text-2xl text-indigo-600"></i><p class="text-3xl font-extrabold tracking-tight mt-4">500+</p><p class="text-sm text-slate-500 mt-1">Partner companies hiring through Zentra</p></div>
+      <div class="bg-lavender rounded-2xl p-6"><i class="bi bi-lightning-charge text-2xl text-indigo-600"></i><p class="text-3xl font-extrabold tracking-tight mt-4">60%</p><p class="text-sm text-slate-500 mt-1">Reduction in time-to-hire for recruiters</p></div>
+      <div class="bg-lavender rounded-2xl p-6 mt-8"><i class="bi bi-graph-up-arrow text-2xl text-indigo-600"></i><p class="text-3xl font-extrabold tracking-tight mt-4">10k+</p><p class="text-sm text-slate-500 mt-1">Candidates placed through the platform</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="bg-lavender border-y border-slate-100">
+  <div class="max-w-7xl mx-auto px-6 lg:px-10 py-20">
+    <div class="text-center mb-14">
+      <h2 class="text-3xl font-extrabold tracking-tight">What we build on</h2>
+      <p class="text-slate-500 mt-2">The principles behind every feature we ship.</p>
+    </div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div class="bg-white rounded-xl p-6 border border-slate-200 fade-up"><i class="bi bi-eye text-2xl text-indigo-600"></i><h3 class="font-semibold mt-4 mb-1">Transparency</h3><p class="text-sm text-slate-500 leading-relaxed">Every score comes with the reasoning behind it, not a black-box number.</p></div>
+      <div class="bg-white rounded-xl p-6 border border-slate-200 fade-up fade-up-d1"><i class="bi bi-shield-check text-2xl text-indigo-600"></i><h3 class="font-semibold mt-4 mb-1">Fair matching</h3><p class="text-sm text-slate-500 leading-relaxed">Candidate-recruiter matching runs on skills and experience, not proxies for identity.</p></div>
+      <div class="bg-white rounded-xl p-6 border border-slate-200 fade-up fade-up-d2"><i class="bi bi-speedometer2 text-2xl text-indigo-600"></i><h3 class="font-semibold mt-4 mb-1">Speed with substance</h3><p class="text-sm text-slate-500 leading-relaxed">Faster hiring shouldn't mean shallower hiring — our models are built to hold both.</p></div>
+      <div class="bg-white rounded-xl p-6 border border-slate-200 fade-up"><i class="bi bi-person-check text-2xl text-indigo-600"></i><h3 class="font-semibold mt-4 mb-1">Candidate-first</h3><p class="text-sm text-slate-500 leading-relaxed">If a feature doesn't help someone get a fair shot, it doesn't ship.</p></div>
+      <div class="bg-white rounded-xl p-6 border border-slate-200 fade-up fade-up-d1"><i class="bi bi-briefcase text-2xl text-indigo-600"></i><h3 class="font-semibold mt-4 mb-1">Built for recruiters too</h3><p class="text-sm text-slate-500 leading-relaxed">A fully customised recruiter workspace, not a bolted-on afterthought.</p></div>
+      <div class="bg-white rounded-xl p-6 border border-slate-200 fade-up fade-up-d2"><i class="bi bi-lock text-2xl text-indigo-600"></i><h3 class="font-semibold mt-4 mb-1">Data you control</h3><p class="text-sm text-slate-500 leading-relaxed">Your resume and application data stay yours — clear policies, no silent sharing.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="bg-indigo-50">
+  <div class="max-w-7xl mx-auto px-6 lg:px-10 py-20 text-center">
+    <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight max-w-lg mx-auto">Ready to see where your resume stands?</h2>
+    <div class="mt-8 flex items-center justify-center gap-3">
+      <a href="{{ url_for('auth.login') }}" class="bg-ink text-white text-sm font-semibold px-6 py-3 rounded-lg hover:bg-slate-800 transition-colors">Get started for free</a>
+      <a href="{{ url_for('recruiter.register') }}" class="bg-white border border-slate-200 text-sm font-semibold px-6 py-3 rounded-lg hover:border-slate-300 transition-colors">Hiring? Start here</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

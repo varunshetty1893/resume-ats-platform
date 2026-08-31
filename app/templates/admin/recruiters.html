@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% import "admin/_pagination.html" as pg %}
+{% block title %}Zentra — Recruiter Approvals & Vetting{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-6 lg:px-10 py-10 space-y-6 fade-up">
+
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+    <div>
+      <h1 class="text-3xl font-extrabold tracking-tight text-ink">Recruiter Approvals & Accounts</h1>
+      <p class="text-sm text-slate-500 mt-1">Review registration credentials, approve companies, or reject incomplete profiles.</p>
+    </div>
+  </div>
+
+  <!-- Status Tabs -->
+  <div class="flex items-center gap-1 bg-slate-100/90 rounded-xl p-1 w-fit">
+    {% set tab_statuses = [('pending', 'Pending Verification'), ('approved', 'Approved'), ('rejected', 'Rejected')] %}
+    {% for val, label in tab_statuses %}
+    <a href="{{ url_for('admin.recruiters', status=val, q=q) }}"
+       class="px-4 py-2 rounded-lg text-sm font-semibold transition-all
+              {{ 'bg-white text-ink shadow-sm' if status_filter == val else 'text-slate-500 hover:text-ink' }}">
+      {{ label }}
+      <span class="ml-1.5 text-xs {{ 'bg-rose-500 text-white px-1.5 py-0.5 rounded-full font-bold text-[10px]' if val == 'pending' and counts[val] > 0 else 'text-slate-400' }}">{{ counts[val] }}</span>
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- Search -->
+  <form method="GET" class="flex gap-3 bg-white p-4 rounded-2xl border border-slate-200/90 shadow-sm max-w-md">
+    <input type="hidden" name="status" value="{{ status_filter }}">
+    <input type="text" name="q" value="{{ q }}" placeholder="Search company, recruiter or email…"
+           class="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-ink focus:ring-2 focus:ring-slate-100">
+    <button type="submit" class="bg-ink text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-800 transition-colors shadow-sm">
+      Search
+    </button>
+    {% if q %}
+    <a href="{{ url_for('admin.recruiters', status=status_filter) }}" class="border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">Clear</a>
+    {% endif %}
+  </form>
+
+  <!-- Profiles Listing Cards -->
+  {% if not profiles_pagination.items %}
+  <div class="bg-white border border-slate-200/90 rounded-2xl p-12 text-center shadow-sm">
+    <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+      <i class="bi bi-building text-2xl"></i>
+    </div>
+    <h3 class="font-bold text-ink text-base">No {{ status_filter }} recruiters</h3>
+    <p class="text-xs text-slate-400 mt-1">There are currently no recruiter profiles under this status matching criteria.</p>
+  </div>
+  {% endif %}
+
+  <div class="space-y-4">
+    {% for profile in profiles_pagination.items %}
+    <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-3.5">
+            <span class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-base shrink-0">
+              {{ profile.company_name[:1]|upper }}
+            </span>
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 class="text-lg font-bold text-ink">{{ profile.company_name }}</h3>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ 'bg-emerald-50 text-emerald-700 border border-emerald-200' if profile.approval_status == 'approved' else ('bg-amber-50 text-amber-700 border border-amber-200' if profile.approval_status == 'pending' else 'bg-rose-50 text-rose-700 border border-rose-200') }}">
+                  {{ profile.approval_status | title }}
+                </span>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5">{{ profile.user.full_name }} · <span class="font-mono text-slate-400">{{ profile.user.email }}</span></p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-4 mt-4 text-xs text-slate-500">
+            {% if profile.industry %}<span><i class="bi bi-tag text-slate-400 mr-1"></i>{{ profile.industry | title }}</span>{% endif %}
+            {% if profile.company_size %}<span><i class="bi bi-people text-slate-400 mr-1"></i>{{ profile.company_size }}</span>{% endif %}
+            {% if profile.company_website %}
+            <a href="{{ profile.company_website }}" target="_blank" class="text-indigo-600 hover:underline"><i class="bi bi-globe mr-1"></i>{{ profile.company_website }}</a>
+            {% endif %}
+            <span><i class="bi bi-calendar3 text-slate-400 mr-1"></i>Submitted {{ profile.submitted_at.strftime('%b %d, %Y') }}</span>
+          </div>
+
+          {% if profile.hiring_needs %}
+          <div class="mt-3.5 p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+            <p class="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Declared Hiring Needs</p>
+            <p class="text-xs text-slate-600 line-clamp-2 leading-relaxed">{{ profile.hiring_needs }}</p>
+          </div>
+          {% endif %}
+
+          {% if profile.rejection_reason %}
+          <p class="text-xs text-rose-600 mt-2 font-medium"><i class="bi bi-exclamation-circle mr-1"></i>Rejection Reason: {{ profile.rejection_reason }}</p>
+          {% endif %}
+        </div>
+
+        <div class="flex items-center gap-2.5 shrink-0 pt-4 lg:pt-0 border-t lg:border-t-0 border-slate-100">
+          <a href="{{ url_for('admin.recruiter_detail', profile_id=profile.id) }}"
+             class="border border-slate-200 text-xs font-semibold px-4 py-2.5 rounded-xl hover:bg-slate-50 text-slate-700 transition-colors">
+            Inspect Profile
+          </a>
+
+          {% if profile.approval_status == 'pending' %}
+          <form method="POST" action="{{ url_for('admin.approve_recruiter', profile_id=profile.id) }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="bg-emerald-600 text-white text-xs font-semibold px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition-colors shadow-sm inline-flex items-center gap-1">
+              <i class="bi bi-check-lg"></i> Approve
+            </button>
+          </form>
+
+          <button type="button"
+                  data-id="{{ profile.id }}"
+                  data-company="{{ profile.company_name }}"
+                  onclick="openRejectModal(this)"
+                  class="bg-rose-50 text-rose-700 border border-rose-200 text-xs font-semibold px-4 py-2.5 rounded-xl hover:bg-rose-100 transition-colors">
+            Reject
+          </button>
+          {% elif profile.approval_status == 'approved' %}
+          <form method="POST" action="{{ url_for('admin.reject_recruiter', profile_id=profile.id) }}" class="inline"
+                onsubmit="return confirm('Are you sure you want to revoke approval for this recruiter account?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="border border-slate-200 text-xs font-semibold px-4 py-2.5 rounded-xl text-rose-600 hover:bg-rose-50 transition-colors">Revoke</button>
+          </form>
+          {% elif profile.approval_status == 'rejected' %}
+          <form method="POST" action="{{ url_for('admin.approve_recruiter', profile_id=profile.id) }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold px-4 py-2.5 rounded-xl hover:bg-emerald-100 transition-colors">Re-approve</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Pagination Bar -->
+  <div class="bg-white border border-slate-200/90 rounded-2xl shadow-sm overflow-hidden">
+    {{ pg.render_pagination(profiles_pagination, 'admin.recruiters', 'recruiter accounts') }}
+  </div>
+
+</div>
+
+<!-- Reject Modal -->
+<div id="reject-modal" class="fixed inset-0 bg-ink/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-100">
+    <h3 class="font-bold text-ink text-lg mb-1">Reject Recruiter Registration</h3>
+    <p class="text-xs text-slate-500 mb-4" id="reject-modal-company"></p>
+    <form id="reject-form" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="block text-xs font-semibold text-slate-700 mb-1.5">Reason for Rejection (sent to recruiter)</label>
+      <textarea name="reason" rows="3" placeholder="Explain what additional credentials or fixes are required…"
+                class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-ink focus:ring-2 focus:ring-slate-100 resize-none mb-4"></textarea>
+      <div class="flex gap-2.5 justify-end">
+        <button type="button" onclick="closeRejectModal()" class="border border-slate-200 px-4 py-2 rounded-xl text-xs font-semibold hover:bg-slate-50 transition-colors">Cancel</button>
+        <button type="submit" class="bg-rose-600 text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-rose-700 transition-colors shadow-sm">Confirm Rejection</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openRejectModal(target, directName) {
+  let id, name;
+  if (target instanceof HTMLElement) {
+    id = target.dataset.id;
+    name = target.dataset.company || 'Recruiter';
+  } else {
+    id = target;
+    name = directName || 'Recruiter';
+  }
+  document.getElementById('reject-form').action = '/admin/recruiters/' + id + '/reject';
+  document.getElementById('reject-modal-company').textContent = 'Company: ' + name;
+  document.getElementById('reject-modal').classList.replace('hidden', 'flex');
+}
+function closeRejectModal() {
+  document.getElementById('reject-modal').classList.replace('flex', 'hidden');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% import "admin/_pagination.html" as pg %}
+{% block title %}Zentra — Admin Activity & Audit Log{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-6 lg:px-10 py-10 space-y-6 fade-up">
+
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+    <div>
+      <h1 class="text-3xl font-extrabold tracking-tight text-ink">Administrative Audit Trail</h1>
+      <p class="text-sm text-slate-500 mt-1">Immutable security log of administrative actions, user permissions, job moderations, and platform changes.</p>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <form method="GET" class="flex flex-wrap gap-3 bg-white p-4 rounded-2xl border border-slate-200/90 shadow-sm">
+    <div class="w-56">
+      <select name="action" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-ink bg-white">
+        <option value="">All Action Types</option>
+        {% for a in all_actions %}
+        <option value="{{ a }}" {{ 'selected' if action_filter == a }}>{{ a | replace('_', ' ') | title }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="w-56">
+      <select name="entity_type" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-ink bg-white">
+        <option value="">All Entity Types</option>
+        <option value="user" {{ 'selected' if entity_filter == 'user' }}>User</option>
+        <option value="recruiter" {{ 'selected' if entity_filter == 'recruiter' }}>Recruiter</option>
+        <option value="job" {{ 'selected' if entity_filter == 'job' }}>Job</option>
+        <option value="application" {{ 'selected' if entity_filter == 'application' }}>Application</option>
+        <option value="setting" {{ 'selected' if entity_filter == 'setting' }}>System Setting</option>
+      </select>
+    </div>
+
+    <button type="submit" class="bg-ink text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-800 transition-colors shadow-sm">
+      Filter Log
+    </button>
+    {% if action_filter or entity_filter %}
+    <a href="{{ url_for('admin.audit') }}" class="border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
+      Clear
+    </a>
+    {% endif %}
+  </form>
+
+  <!-- Audit Table -->
+  <div class="bg-white border border-slate-200/90 rounded-2xl shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs text-slate-500 font-semibold uppercase tracking-wider border-b border-slate-100">
+          <tr>
+            <th class="px-6 py-3.5 text-left">Timestamp</th>
+            <th class="px-6 py-3.5 text-left">Admin</th>
+            <th class="px-6 py-3.5 text-left">Action</th>
+            <th class="px-6 py-3.5 text-left">Target Entity</th>
+            <th class="px-6 py-3.5 text-left">Details & Notes</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for log in logs_pagination.items %}
+          <tr class="hover:bg-slate-50/60 transition-colors">
+            <td class="px-6 py-4 font-mono text-xs text-slate-500 whitespace-nowrap">
+              {{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+            </td>
+            <td class="px-6 py-4">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-[10px]">
+                  {{ log.admin.full_name[:1]|upper }}
+                </span>
+                <span class="font-bold text-ink text-xs">{{ log.admin.full_name }}</span>
+              </div>
+            </td>
+            <td class="px-6 py-4">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ 'bg-emerald-50 text-emerald-700 border border-emerald-200' if 'approve' in log.action or 'enable' in log.action else ('bg-rose-50 text-rose-700 border border-rose-200' if 'reject' in log.action or 'disable' in log.action else 'bg-indigo-50 text-indigo-700 border border-indigo-200') }}">
+                {{ log.action | replace('_', ' ') | title }}
+              </span>
+            </td>
+            <td class="px-6 py-4 text-xs">
+              {% if log.entity_type %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] uppercase font-bold tracking-wider bg-slate-100 text-slate-600 border border-slate-200">{{ log.entity_type }}</span>
+              {% if log.entity_id %}<span class="text-slate-400 font-mono ml-1">#{{ log.entity_id }}</span>{% endif %}
+              {% else %}
+              <span class="text-slate-300">—</span>
+              {% endif %}
+            </td>
+            <td class="px-6 py-4 text-xs text-slate-600 max-w-xs truncate">
+              {{ log.detail or '—' }}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="px-6 py-12 text-center text-slate-400">No audit log records found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {{ pg.render_pagination(logs_pagination, 'admin.audit', 'audit records') }}
+  </div>
+
+</div>
+{% endblock %}

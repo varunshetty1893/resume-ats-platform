@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Zentra — Admin Reports & Intelligence{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-6 lg:px-10 py-10 space-y-8 fade-up">
+
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+    <div>
+      <h1 class="text-3xl font-extrabold tracking-tight text-ink">Platform Analytics & Intelligence</h1>
+      <p class="text-sm text-slate-500 mt-1">Macro-level hiring funnel performance, ATS match score distribution, and organisation statistics.</p>
+    </div>
+  </div>
+
+  <!-- Hiring Funnel Breakdown -->
+  <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm space-y-6">
+    <div class="flex items-center justify-between">
+      <div>
+        <h3 class="font-bold text-ink text-lg">Full Platform Hiring Funnel</h3>
+        <p class="text-xs text-slate-500 mt-0.5">Aggregate candidate progression across all company job postings</p>
+      </div>
+      <span class="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+        {{ funnel.applied }} Total Applications
+      </span>
+    </div>
+
+    {% set total_f = funnel.applied or 1 %}
+    <div class="grid sm:grid-cols-2 lg:grid-cols-6 gap-3.5">
+      <div class="p-4 bg-slate-50 rounded-xl border border-slate-100 text-center">
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Applied</p>
+        <p class="text-2xl font-extrabold text-ink mt-1.5">{{ funnel.applied }}</p>
+        <p class="text-[11px] text-slate-400 mt-0.5">100%</p>
+      </div>
+      <div class="p-4 bg-slate-50 rounded-xl border border-slate-100 text-center">
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Under Review</p>
+        <p class="text-2xl font-extrabold text-ink mt-1.5">{{ funnel.under_review }}</p>
+        <p class="text-[11px] text-slate-400 mt-0.5">{{ ((funnel.under_review / total_f) * 100)|int }}%</p>
+      </div>
+      <div class="p-4 bg-amber-50/60 rounded-xl border border-amber-200/70 text-center">
+        <p class="text-xs font-semibold text-amber-800 uppercase tracking-wider">Shortlisted</p>
+        <p class="text-2xl font-extrabold text-amber-600 mt-1.5">{{ funnel.shortlisted }}</p>
+        <p class="text-[11px] text-amber-700 mt-0.5">{{ ((funnel.shortlisted / total_f) * 100)|int }}%</p>
+      </div>
+      <div class="p-4 bg-indigo-50/60 rounded-xl border border-indigo-200/70 text-center">
+        <p class="text-xs font-semibold text-indigo-800 uppercase tracking-wider">Interview</p>
+        <p class="text-2xl font-extrabold text-indigo-600 mt-1.5">{{ funnel.interview }}</p>
+        <p class="text-[11px] text-indigo-700 mt-0.5">{{ ((funnel.interview / total_f) * 100)|int }}%</p>
+      </div>
+      <div class="p-4 bg-emerald-50/60 rounded-xl border border-emerald-200/70 text-center">
+        <p class="text-xs font-semibold text-emerald-800 uppercase tracking-wider">Hired</p>
+        <p class="text-2xl font-extrabold text-emerald-600 mt-1.5">{{ funnel.hired }}</p>
+        <p class="text-[11px] text-emerald-700 mt-0.5">{{ ((funnel.hired / total_f) * 100)|int }}%</p>
+      </div>
+      <div class="p-4 bg-rose-50/60 rounded-xl border border-rose-200/70 text-center">
+        <p class="text-xs font-semibold text-rose-800 uppercase tracking-wider">Rejected</p>
+        <p class="text-2xl font-extrabold text-rose-600 mt-1.5">{{ funnel.rejected }}</p>
+        <p class="text-[11px] text-rose-700 mt-0.5">{{ ((funnel.rejected / total_f) * 100)|int }}%</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid lg:grid-cols-2 gap-6">
+
+    <!-- ATS Match Score Distribution -->
+    <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm space-y-4">
+      <div>
+        <h3 class="font-bold text-ink text-base">ATS Match Score Distribution</h3>
+        <p class="text-xs text-slate-500 mt-0.5">Application match score ranges calculated by Zentra's algorithm</p>
+      </div>
+
+      {% set max_bucket = (score_buckets.values() | max) or 1 %}
+      <div class="space-y-3.5 pt-2">
+        {% for range_label, count in score_buckets.items() %}
+        <div>
+          <div class="flex justify-between text-xs mb-1.5">
+            <span class="font-semibold text-slate-700">{{ range_label }}% Match</span>
+            <span class="font-bold text-ink">{{ count }} apps</span>
+          </div>
+          <div class="h-3 bg-slate-100 rounded-full overflow-hidden">
+            {% set bar_width = [(count / max_bucket * 100)|int, 4]|max %}
+            <div class="h-full rounded-full transition-all dynamic-bar {{ 'bg-emerald-500' if range_label == '76-100' else ('bg-indigo-600' if range_label == '51-75' else ('bg-amber-500' if range_label == '26-50' else 'bg-rose-500')) }}"
+                 data-width="{{ bar_width }}"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Recruiter Verification Breakdown -->
+    <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm space-y-4">
+      <div>
+        <h3 class="font-bold text-ink text-base">Recruiter Verification Status</h3>
+        <p class="text-xs text-slate-500 mt-0.5">Platform compliance & vetting pipeline</p>
+      </div>
+
+      <div class="grid grid-cols-3 gap-3 text-center pt-2">
+        <div class="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200/80">
+          <p class="text-xs font-semibold text-emerald-800">Approved</p>
+          <p class="text-3xl font-extrabold text-emerald-600 mt-1">{{ approval_stats.get('approved', 0) }}</p>
+        </div>
+        <div class="p-4 bg-amber-50/70 rounded-xl border border-amber-200/80">
+          <p class="text-xs font-semibold text-amber-800">Pending</p>
+          <p class="text-3xl font-extrabold text-amber-600 mt-1">{{ approval_stats.get('pending', 0) }}</p>
+        </div>
+        <div class="p-4 bg-rose-50/70 rounded-xl border border-rose-200/80">
+          <p class="text-xs font-semibold text-rose-800">Rejected</p>
+          <p class="text-3xl font-extrabold text-rose-600 mt-1">{{ approval_stats.get('rejected', 0) }}</p>
+        </div>
+      </div>
+
+      <div class="pt-4 border-t border-slate-100">
+        <h4 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Job Postings by Status</h4>
+        <div class="flex flex-wrap items-center gap-3 text-xs text-slate-600">
+          <span class="inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Active: <strong>{{ job_status_dist.get('active', 0) }}</strong></span>
+          <span class="inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span> Draft: <strong>{{ job_status_dist.get('draft', 0) }}</strong></span>
+          <span class="inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-indigo-500"></span> Paused: <strong>{{ job_status_dist.get('paused', 0) }}</strong></span>
+          <span class="inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-slate-400"></span> Closed: <strong>{{ job_status_dist.get('closed', 0) }}</strong></span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Top Hiring Companies -->
+  <div class="bg-white border border-slate-200/90 rounded-2xl shadow-sm overflow-hidden">
+    <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+      <div>
+        <h3 class="font-bold text-ink text-base">Top Recruiting Organisations</h3>
+        <p class="text-xs text-slate-500 mt-0.5">Companies with active job openings on Zentra</p>
+      </div>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs text-slate-500 font-semibold uppercase tracking-wider border-b border-slate-100">
+          <tr>
+            <th class="px-6 py-3.5 text-left">Company Name</th>
+            <th class="px-6 py-3.5 text-left">Active Job Count</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for comp in top_companies %}
+          <tr class="hover:bg-slate-50/60 transition-colors">
+            <td class="px-6 py-4 font-bold text-ink">
+              <a href="{{ url_for('admin.company_detail', company_name=comp.company_name) }}" class="hover:text-indigo-600 transition-colors">
+                {{ comp.company_name }}
+              </a>
+            </td>
+            <td class="px-6 py-4 font-extrabold text-indigo-600">{{ comp.job_count }} job{{ 's' if comp.job_count != 1 else '' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="2" class="px-6 py-8 text-center text-slate-400">No active company jobs listed.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('[data-width]').forEach(function(el) {
+    el.style.width = el.getAttribute('data-width') + '%';
+  });
+</script>
+{% endblock %}

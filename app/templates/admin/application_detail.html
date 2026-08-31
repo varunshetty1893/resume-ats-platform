@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Zentra — Application #{{ app.id }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-6 lg:px-10 py-10 space-y-6 fade-up">
+
+  <!-- Breadcrumb -->
+  <div class="flex items-center gap-2 text-xs font-semibold text-slate-500">
+    <a href="{{ url_for('admin.applications') }}" class="hover:text-ink transition-colors"><i class="bi bi-arrow-left mr-1"></i>Back to Applications</a>
+    <span class="text-slate-300">/</span>
+    <span class="text-ink">#{{ app.id }} ({{ app.candidate.full_name }})</span>
+  </div>
+
+  <div class="grid lg:grid-cols-3 gap-6">
+
+    <!-- Candidate & Job Summary Card -->
+    <div class="lg:col-span-1 space-y-5">
+      <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm space-y-5">
+        
+        <!-- Status & Match Header -->
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ 'bg-emerald-50 text-emerald-700 border border-emerald-200' if app.status == 'hired' else ('bg-indigo-50 text-indigo-700 border border-indigo-200' if app.status == 'interview' else ('bg-amber-50 text-amber-700 border border-amber-200' if app.status == 'shortlisted' else ('bg-rose-50 text-rose-700 border border-rose-200' if app.status == 'rejected' else 'bg-slate-100 text-slate-600 border border-slate-200'))) }}">
+            {{ app.status | replace('_', ' ') | title }}
+          </span>
+          {% if app.match_score is not none %}
+          <div class="flex items-center gap-1.5 font-extrabold {{ 'text-emerald-600' if app.match_score >= 70 else ('text-amber-600' if app.match_score >= 40 else 'text-rose-600') }}">
+            <i class="bi bi-cpu text-sm"></i>
+            <span class="text-lg">{{ app.match_score|int }}%</span>
+            <span class="text-[11px] text-slate-400 font-normal">Match</span>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Candidate Info -->
+        <div>
+          <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5">Candidate Details</p>
+          <div class="flex items-center gap-3">
+            <span class="w-10 h-10 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-sm shrink-0">
+              {{ app.candidate.full_name[:1]|upper }}
+            </span>
+            <div class="min-w-0 flex-1">
+              <p class="font-bold text-ink text-sm">{{ app.candidate.full_name }}</p>
+              <p class="text-xs text-slate-400 truncate">{{ app.candidate.email }}</p>
+            </div>
+          </div>
+          <div class="mt-3 space-y-1.5 text-xs text-slate-600">
+            {% if app.candidate.phone %}<p><i class="bi bi-telephone text-slate-400 mr-1.5"></i>{{ app.candidate.phone }}</p>{% endif %}
+            {% if app.candidate.location %}<p><i class="bi bi-geo-alt text-slate-400 mr-1.5"></i>{{ app.candidate.location }}</p>{% endif %}
+          </div>
+          <div class="mt-3">
+            <a href="{{ url_for('admin.user_detail', user_id=app.candidate_id) }}" class="text-xs text-indigo-600 font-semibold hover:underline">
+              Inspect Candidate Account →
+            </a>
+          </div>
+        </div>
+
+        <!-- Job Info -->
+        <div class="pt-4 border-t border-slate-100">
+          <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Applied Position</p>
+          <p class="font-bold text-ink text-sm">{{ app.job.title }}</p>
+          <p class="text-xs text-slate-500 font-semibold mt-0.5">{{ app.job.recruiter_profile.company_name }}</p>
+          <div class="mt-2 text-xs text-slate-400 space-y-0.5">
+            <p>{{ app.job.job_type | replace('_', ' ') | title }} · {{ app.job.work_mode | capitalize }}</p>
+            <p>Posted by {{ app.job.recruiter_profile.user.full_name }}</p>
+          </div>
+          <div class="mt-3">
+            <a href="{{ url_for('admin.job_detail', job_id=app.job_id) }}" class="text-xs text-indigo-600 font-semibold hover:underline">
+              Inspect Job Posting →
+            </a>
+          </div>
+        </div>
+
+        <!-- Meta -->
+        <div class="pt-4 border-t border-slate-100 text-xs text-slate-400 space-y-1">
+          <p>Application ID: <span class="font-mono text-ink">#{{ app.id }}</span></p>
+          <p>Submitted: <span class="text-slate-600 font-medium">{{ app.applied_at.strftime('%b %d, %Y at %H:%M') }}</span></p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Right area: Cover note, Resume & Event Timeline -->
+    <div class="lg:col-span-2 space-y-6">
+
+      <!-- Cover Note -->
+      {% if app.cover_note %}
+      <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm">
+        <h3 class="font-bold text-ink text-sm mb-2">Candidate Cover Message</h3>
+        <p class="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{{ app.cover_note }}</p>
+      </div>
+      {% endif %}
+
+      <!-- Resume Used -->
+      <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="font-bold text-ink text-sm">Attached Resume Document</h3>
+          <span class="text-xs text-slate-400 font-mono">Version ID: #{{ app.resume_id }}</span>
+        </div>
+        <div class="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-lg shrink-0">
+              <i class="bi bi-file-earmark-pdf"></i>
+            </span>
+            <div>
+              <p class="text-xs font-bold text-ink">{{ app.resume.title or 'Resume Document' }}</p>
+              <p class="text-[11px] text-slate-400">Uploaded on {{ app.resume.created_at.strftime('%b %d, %Y') if app.resume.created_at else 'N/A' }}</p>
+            </div>
+          </div>
+          {% if app.resume.parsed_text %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Parsed</span>
+          {% endif %}
+        </div>
+        {% if app.resume.parsed_text %}
+        <div>
+          <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Parsed Plaintext Snippet</p>
+          <p class="text-xs text-slate-600 line-clamp-4 font-mono bg-slate-50 p-3.5 rounded-xl border border-slate-100 leading-relaxed">{{ app.resume.parsed_text[:500] }}...</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Application Event History / Pipeline Timeline -->
+      <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm">
+        <h3 class="font-bold text-ink text-base mb-4">Pipeline Event History</h3>
+        {% if app.events %}
+        <div class="space-y-4">
+          {% for event in app.events %}
+          <div class="flex items-start gap-3 text-xs">
+            <span class="w-6 h-6 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 mt-0.5">
+              <i class="bi bi-circle-fill text-[6px]"></i>
+            </span>
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-ink">{{ event.status | replace('_', ' ') | title }}</span>
+                <span class="text-slate-400 text-[10px]">{{ event.created_at.strftime('%b %d, %Y %H:%M') }}</span>
+              </div>
+              {% if event.note %}
+              <p class="text-slate-500 mt-1">{{ event.note }}</p>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-xs text-slate-400 py-4 text-center">No stage transition events logged beyond initial submission.</p>
+        {% endif %}
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% block title %}Zentra — Compare Candidates for {{ job.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-6 lg:px-10 py-10">
+  
+  <!-- Back Link -->
+  <div class="mb-6 flex items-center justify-between">
+    <a href="{{ url_for('recruiter.applicants', job_id=job.id) }}" class="text-xs font-semibold text-slate-500 hover:text-ink inline-flex items-center gap-1.5 transition-colors">
+      <i class="bi bi-arrow-left"></i>Back to Applicants Queue
+    </a>
+  </div>
+
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+    <div>
+      <div class="flex items-center gap-3 flex-wrap">
+        <h1 class="text-2xl font-extrabold text-ink">Side-by-Side Candidate Comparison</h1>
+        <span class="text-xs font-semibold px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700">
+          {{ job.title }}
+        </span>
+      </div>
+      <p class="text-xs text-slate-400 mt-2">Evaluate candidate skill overlap, qualifications, and relative suitability side-by-side.</p>
+    </div>
+  </div>
+
+  <!-- Candidate Switcher Toolbar -->
+  <div class="bg-white border border-slate-200 rounded-2xl p-4 mt-6 flex items-center justify-between gap-4 flex-wrap shadow-sm">
+    <p class="text-xs font-bold text-slate-700">Comparing <strong class="text-indigo-600">{{ candidate_cols|length }}</strong> Candidates</p>
+    
+    <div class="flex items-center gap-2 flex-wrap">
+      <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Add to comparison:</span>
+      <form method="GET" action="{{ url_for('recruiter.compare_candidates', job_id=job.id) }}" class="flex items-center gap-2">
+        <select onchange="addCandidateToCompare(this.value)" class="bg-slate-50 border border-slate-200 text-xs rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-600/20">
+          <option value="">Select an applicant...</option>
+          {% for app in all_job_apps %}
+          {% if app.id not in selected_app_ids %}
+          <option value="{{ app.id }}">{{ app.candidate.full_name }} ({{ app.match_score|round|int }}%)</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+  </div>
+
+  {% if not candidate_cols %}
+  <div class="bg-white border border-slate-200 rounded-3xl p-12 text-center mt-6">
+    <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
+      <i class="bi bi-columns-gap text-2xl"></i>
+    </div>
+    <h3 class="font-bold text-ink text-base">No candidates selected for comparison</h3>
+    <p class="text-xs text-slate-400 mt-1 max-w-sm mx-auto">Select applicants from the Applicants Queue or choose from the dropdown above.</p>
+  </div>
+  {% else %}
+
+  <!-- Comparison Matrix Table -->
+  <div id="compare-matrix" data-ids="{{ selected_app_ids|join(',') }}" class="mt-6 bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse">
+        
+        <!-- Header row with candidate profiles -->
+        <thead>
+          <tr class="bg-slate-50/70 border-b border-slate-200">
+            <th class="p-5 font-bold text-xs text-slate-400 uppercase tracking-wider w-1/4">Metric / Criteria</th>
+            {% for col in candidate_cols %}
+            <th class="p-5 w-1/4 min-w-[240px]">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-2xl bg-ink text-white font-bold text-sm flex items-center justify-center shrink-0">
+                    {{ col.candidate.full_name[:1]|upper }}
+                  </div>
+                  <div>
+                    <h3 class="text-sm font-bold text-ink hover:text-indigo-600">
+                      <a href="{{ url_for('recruiter.candidate_intelligence', candidate_id=col.candidate.id, job_id=job.id) }}">
+                        {{ col.candidate.full_name }}
+                      </a>
+                    </h3>
+                    <p class="text-[11px] text-slate-400 truncate max-w-[150px]">{{ col.candidate.headline or 'Candidate' }}</p>
+                  </div>
+                </div>
+                <button type="button" onclick="removeCandidateFromCompare('{{ col.application.id }}')" class="text-slate-300 hover:text-rose-500 p-1" title="Remove from comparison">
+                  <i class="bi bi-x-lg text-xs"></i>
+                </button>
+              </div>
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+
+        <tbody class="divide-y divide-slate-100 text-xs">
+          
+          <!-- Overall Match Score -->
+          <tr class="bg-indigo-50/20">
+            <td class="p-4 font-bold text-slate-700">Overall Match Score</td>
+            {% for col in candidate_cols %}
+            <td class="p-4">
+              <div class="flex items-center gap-2">
+                <span class="text-lg font-black text-indigo-700">{{ col.score|round|int }}%</span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full {{ 'bg-emerald-100 text-emerald-800' if col.score >= 80 else 'bg-indigo-100 text-indigo-800' }}">
+                  {{ 'Top Tier' if col.score >= 80 else ('Strong Fit' if col.score >= 70 else 'Moderate') }}
+                </span>
+              </div>
+            </td>
+            {% endfor %}
+          </tr>
+
+          <!-- Experience Years & Seniority -->
+          <tr>
+            <td class="p-4 font-bold text-slate-700">Total Experience</td>
+            {% for col in candidate_cols %}
+            <td class="p-4 font-semibold text-slate-800">
+              {{ col.experience_years }} <span class="text-slate-400 font-normal">({{ col.seniority }})</span>
+            </td>
+            {% endfor %}
+          </tr>
+
+          <!-- Education -->
+          <tr>
+            <td class="p-4 font-bold text-slate-700">Education Credentials</td>
+            {% for col in candidate_cols %}
+            <td class="p-4 font-medium text-slate-700">
+              {{ col.degrees }}
+            </td>
+            {% endfor %}
+          </tr>
+
+          <!-- Skills Overlap Summary -->
+          <tr>
+            <td class="p-4 font-bold text-slate-700">Verified Skills Count</td>
+            {% for col in candidate_cols %}
+            <td class="p-4 font-semibold text-slate-800">
+              <span class="text-emerald-700 font-bold">{{ col.matched_count }}</span> / {{ all_jd_skills|length }} skills matched
+            </td>
+            {% endfor %}
+          </tr>
+
+          <!-- Skills Checklist Matrix (Skill by Skill) -->
+          <tr class="bg-slate-50/50">
+            <td colspan="{{ candidate_cols|length + 1 }}" class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Detailed Skills Matrix
+            </td>
+          </tr>
+
+          {% for skill in all_jd_skills %}
+          <tr class="hover:bg-slate-50/40 transition-colors">
+            <td class="p-3.5 font-semibold text-slate-700 pl-6">{{ skill }}</td>
+            {% for col in candidate_cols %}
+            <td class="p-3.5">
+              {% if col.skills_map.get(skill) %}
+              <span class="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                <i class="bi bi-check-lg"></i> Verified
+              </span>
+              {% else %}
+              <span class="inline-flex items-center gap-1 font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
+                <i class="bi bi-x"></i> Missing
+              </span>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+
+          <!-- Missing Skills Summary -->
+          <tr>
+            <td class="p-4 font-bold text-slate-700">Unverified / Missing Skills</td>
+            {% for col in candidate_cols %}
+            <td class="p-4">
+              <div class="flex items-center gap-1 flex-wrap">
+                {% if col.missing_skills %}
+                  {% for s in col.missing_skills[:4] %}
+                  <span class="text-[10px] px-2 py-0.5 rounded bg-rose-50 text-rose-700 font-medium">{{ s }}</span>
+                  {% endfor %}
+                  {% if col.missing_skills|length > 4 %}
+                  <span class="text-[10px] text-slate-400">+{{ col.missing_skills|length - 4 }} more</span>
+                  {% endif %}
+                {% else %}
+                  <span class="text-[11px] text-emerald-700 font-bold">None (Full Skill Overlap)</span>
+                {% endif %}
+              </div>
+            </td>
+            {% endfor %}
+          </tr>
+
+          <!-- Application Status & Actions -->
+          <tr class="bg-slate-50/70">
+            <td class="p-4 font-bold text-slate-700">Stage Actions</td>
+            {% for col in candidate_cols %}
+            <td class="p-4">
+              <div class="flex items-center gap-2 flex-wrap">
+                <a href="{{ url_for('recruiter.candidate_intelligence', candidate_id=col.candidate.id, job_id=job.id) }}" 
+                   class="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm">
+                  Intelligence View
+                </a>
+
+                <form method="POST" action="{{ url_for('recruiter.update_application_status', application_id=col.application.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                  <input type="hidden" name="status" value="interview"/>
+                  <input type="hidden" name="return_to" value="applicants"/>
+                  <button type="submit" class="text-xs font-semibold bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+                    Interview
+                  </button>
+                </form>
+              </div>
+            </td>
+            {% endfor %}
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+function getCurrentCompareIds() {
+  const container = document.getElementById('compare-matrix');
+  const raw = container ? container.getAttribute('data-ids') : '';
+  if (!raw) return [];
+  return raw.split(',').map(function(s) { return parseInt(s.trim()); }).filter(function(n) { return !isNaN(n); });
+}
+
+function addCandidateToCompare(appId) {
+  if (!appId) return;
+  const currentIds = getCurrentCompareIds();
+  const idNum = parseInt(appId);
+  if (!currentIds.includes(idNum)) {
+    currentIds.push(idNum);
+    window.location.href = "{{ url_for('recruiter.compare_candidates', job_id=job.id) }}?apps=" + currentIds.join(',');
+  }
+}
+
+function removeCandidateFromCompare(appId) {
+  const idNum = parseInt(appId);
+  let currentIds = getCurrentCompareIds();
+  currentIds = currentIds.filter(function(id) { return id !== idNum; });
+  window.location.href = "{{ url_for('recruiter.compare_candidates', job_id=job.id) }}?apps=" + currentIds.join(',');
+}
+</script>
+{% endblock %}

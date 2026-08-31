@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Zentra — 429 Rate Limit Exceeded{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto px-6 py-24 text-center fade-up">
+  <span class="w-16 h-16 rounded-2xl bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center mx-auto mb-6 text-2xl font-bold">
+    <i class="bi bi-hourglass-split"></i>
+  </span>
+  <h1 class="text-3xl font-extrabold text-ink tracking-tight">Rate Limit Reached</h1>
+  <p class="text-slate-500 mt-3 text-sm leading-relaxed">
+    {{ error_message or "You have sent too many requests in a short period. Please wait a moment before trying again to protect platform security." }}
+  </p>
+  {% if retry_after %}
+  <div class="mt-4 p-3 bg-amber-50 rounded-xl border border-amber-200/80 inline-block text-xs font-semibold text-amber-800">
+    <i class="bi bi-clock-history mr-1"></i> Recommended retry cooldown: {{ retry_after }} seconds
+  </div>
+  {% endif %}
+  <div class="mt-8 flex items-center justify-center gap-3">
+    <a href="javascript:location.reload()" class="border border-slate-200 text-slate-700 text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-slate-50 transition-colors">
+      Retry Now
+    </a>
+    <a href="{{ url_for('main.landing') }}" class="bg-ink text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-slate-800 transition-colors shadow-sm">
+      Return Home
+    </a>
+  </div>
+</div>
+{% endblock %}

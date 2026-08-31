@@ -1,0 +1,38 @@
+# Core Framework
+Flask==3.0.3
+Flask-SQLAlchemy==3.1.1
+Flask-Login==0.6.3
+Flask-WTF==1.2.1
+Flask-Migrate==4.0.7
+Flask-Limiter==4.1.1
+
+# WTForms / Validation
+WTForms==3.1.2
+email-validator==2.2.0
+
+# Werkzeug (HTTP / security utils)
+Werkzeug==3.0.3
+
+# Jinja2 (pinned to patched version avoiding SSTI CVEs)
+Jinja2>=3.1.5
+
+# Environment & config
+python-dotenv==1.0.1
+
+# Database
+psycopg2-binary==2.9.9
+
+# Rate limiting storage
+limits==5.8.0
+
+# ML / Data processing
+scikit-learn==1.5.1
+pandas==2.2.2
+
+# PDF / Document generation & parsing
+reportlab==4.2.2
+pypdf==4.3.1
+python-docx==1.1.2
+
+# Cryptography (pinned to avoid older CVEs)
+cryptography>=42.0.0

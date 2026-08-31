@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% set active_nav = 'recruiters' %}
+{% block title %}Zentra — For Recruiters{% endblock %}
+
+{% block content %}
+<section class="grid-bg border-b border-slate-100">
+  <div class="max-w-4xl mx-auto px-6 lg:px-10 pt-20 pb-16 text-center fade-up">
+    <p class="text-indigo-600 font-semibold text-sm uppercase tracking-wide">For Recruiters</p>
+    <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight leading-[1.1] mt-3">Hire smarter with AI-matched candidates.</h1>
+    <p class="mt-6 text-lg text-slate-500 max-w-2xl mx-auto">Register your company, get verified, and post roles to a pool of candidates who've already been scored against your requirements.</p>
+    <div class="mt-8"><a href="#register" class="inline-block bg-ink text-white text-sm font-semibold px-6 py-3 rounded-lg hover:bg-slate-800 transition-colors">Register your company</a></div>
+  </div>
+</section>
+
+<section class="max-w-7xl mx-auto px-6 lg:px-10 py-20">
+  <div class="text-center mb-14">
+    <h2 class="text-3xl font-extrabold tracking-tight">Everything you need to hire, in one place</h2>
+    <p class="text-slate-500 mt-2">Built for teams that hire often, not just once.</p>
+  </div>
+  <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="bg-lavender rounded-xl p-6"><i class="bi bi-funnel text-2xl text-indigo-600"></i><h3 class="font-semibold mt-4 mb-1">Automated screening</h3><p class="text-sm text-slate-500 leading-relaxed">Every applicant is scored against your job description before you open the profile.</p></div>
+    <div class="bg-lavender rounded-xl p-6"><i class="bi bi-kanban text-2xl text-indigo-600"></i><h3 class="font-semibold mt-4 mb-1">Pipeline management</h3><p class="text-sm text-slate-500 leading-relaxed">Track applicants from applied to hired, with statuses your whole team can see.</p></div>
+    <div class="bg-lavender rounded-xl p-6"><i class="bi bi-graph-up-arrow text-2xl text-indigo-600"></i><h3 class="font-semibold mt-4 mb-1">Predictive matching</h3><p class="text-sm text-slate-500 leading-relaxed">Match scores based on skills and experience, not just keyword overlap.</p></div>
+    <div class="bg-lavender rounded-xl p-6"><i class="bi bi-file-earmark-post text-2xl text-indigo-600"></i><h3 class="font-semibold mt-4 mb-1">Unlimited job posts</h3><p class="text-sm text-slate-500 leading-relaxed">Post as many open roles as you're actively hiring for, with no per-listing fee.</p></div>
+    <div class="bg-lavender rounded-xl p-6"><i class="bi bi-people text-2xl text-indigo-600"></i><h3 class="font-semibold mt-4 mb-1">Team access</h3><p class="text-sm text-slate-500 leading-relaxed">Bring hiring managers into the loop with shared visibility on every role.</p></div>
+    <div class="bg-lavender rounded-xl p-6"><i class="bi bi-patch-check text-2xl text-indigo-600"></i><h3 class="font-semibold mt-4 mb-1">Verified companies only</h3><p class="text-sm text-slate-500 leading-relaxed">Every recruiter account is reviewed before job posts go live, so candidates trust every listing.</p></div>
+  </div>
+</section>
+
+<section class="bg-lavender border-y border-slate-100">
+  <div class="max-w-7xl mx-auto px-6 lg:px-10 py-20 text-center">
+    <h2 class="text-3xl font-extrabold tracking-tight">How it works</h2>
+    <p class="text-slate-500 mt-2">Every company is reviewed before roles go live — here's the process.</p>
+    <div class="mt-14 grid sm:grid-cols-3 gap-8 text-left">
+      <div><div class="w-11 h-11 rounded-full bg-ink text-white flex items-center justify-center font-bold text-sm mb-4">1</div><h3 class="font-semibold mb-1">Submit your details</h3><p class="text-sm text-slate-500">Fill in your company and contact information below.</p></div>
+      <div><div class="w-11 h-11 rounded-full bg-ink text-white flex items-center justify-center font-bold text-sm mb-4">2</div><h3 class="font-semibold mb-1">Verification review</h3><p class="text-sm text-slate-500">Our team checks the company details, usually within 1–2 business days.</p></div>
+      <div><div class="w-11 h-11 rounded-full bg-ink text-white flex items-center justify-center font-bold text-sm mb-4">3</div><h3 class="font-semibold mb-1">Start posting roles</h3><p class="text-sm text-slate-500">Once approved, sign in and post jobs straight to the candidate pool.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="register" class="max-w-3xl mx-auto px-6 lg:px-10 py-20">
+  <div class="text-center mb-10">
+    <h2 class="text-3xl font-extrabold tracking-tight">Register your company</h2>
+    <p class="text-slate-500 mt-2">Your account stays in pending status until an admin approves it. You'll be notified either way.</p>
+  </div>
+
+  <form method="POST" action="{{ url_for('recruiter.register') }}" class="bg-white border border-slate-200 rounded-2xl shadow-sm p-8 space-y-6">
+    {{ form.hidden_tag() }}
+
+    <div>
+      <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Company details</p>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.company_name.label.text }}</label>
+          {{ form.company_name(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="Acme Corp") }}
+          {% for error in form.company_name.errors %}<p class="text-xs text-rose-500 mt-1">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.industry.label.text }}</label>
+          {{ form.industry(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors") }}
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.company_size.label.text }}</label>
+          {{ form.company_size(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors") }}
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.company_website.label.text }}</label>
+          {{ form.company_website(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="https://acme.com") }}
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Contact person</p>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.contact_name.label.text }}</label>
+          {{ form.contact_name(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="Jordan Lee") }}
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.contact_role.label.text }}</label>
+          {{ form.contact_role(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="Talent Acquisition Lead") }}
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.work_email.label.text }}</label>
+          {{ form.work_email(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="jordan@acme.com") }}
+          {% for error in form.work_email.errors %}<p class="text-xs text-rose-500 mt-1">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.phone.label.text }}</label>
+          {{ form.phone(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="+91 98765 43210") }}
+        </div>
+        <div class="sm:col-span-2">
+          <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.password.label.text }}</label>
+          {{ form.password(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="At least 8 characters") }}
+          {% for error in form.password.errors %}<p class="text-xs text-rose-500 mt-1">{{ error }}</p>{% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.hiring_needs.label.text }} <span class="text-slate-400 font-normal normal-case">(optional)</span></label>
+      {{ form.hiring_needs(rows=3, class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors resize-none", placeholder="e.g. 3 backend engineers, 1 product designer") }}
+    </div>
+
+    <label class="flex items-start gap-2.5 text-sm text-slate-600 cursor-pointer">
+      {{ form.agree_terms(class_="w-4 h-4 mt-0.5 rounded accent-indigo-600 shrink-0") }}
+      <span>I confirm I'm authorised to register on behalf of this company, and agree to the <a href="{{ url_for('main.terms') }}" target="_blank" class="font-semibold text-indigo-600 hover:text-indigo-700">Terms &amp; Conditions</a> and <a href="{{ url_for('main.privacy') }}" target="_blank" class="font-semibold text-indigo-600 hover:text-indigo-700">Privacy Policy</a></span>
+    </label>
+
+    {{ form.submit(class_="w-full bg-ink text-white text-sm font-semibold py-3 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer") }}
+    <p class="text-xs text-slate-400 text-center">Already approved? <a href="{{ url_for('auth.login') }}" class="font-semibold text-indigo-600 hover:text-indigo-700">Sign in here</a>.</p>
+  </form>
+</section>
+{% endblock %}

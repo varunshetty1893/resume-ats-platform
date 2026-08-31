@@ -1,0 +1,390 @@
+{% extends "base.html" %}
+{% block title %}Zentra — Candidate Intelligence: {{ candidate.full_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-6 lg:px-10 py-10">
+  
+  <!-- Back navigation & Breadcrumb -->
+  <div class="flex items-center justify-between gap-4 mb-6">
+    <div class="flex items-center gap-2 text-xs font-semibold text-slate-500">
+      <a href="{{ url_for('recruiter.candidates') }}" class="hover:text-ink transition-colors">Candidates</a>
+      <i class="bi bi-chevron-right text-[10px] text-slate-300"></i>
+      <span class="text-slate-700">{{ candidate.full_name }}</span>
+      <i class="bi bi-chevron-right text-[10px] text-slate-300"></i>
+      <span class="text-indigo-600 font-bold">Candidate Intelligence</span>
+    </div>
+
+    {% if target_app %}
+    <div class="flex items-center gap-2">
+      <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Status:</span>
+      <span class="text-xs font-bold px-3 py-1 rounded-full {{ 'bg-emerald-50 text-emerald-700 border border-emerald-200' if target_app.status == 'hired' else ('bg-violet-50 text-violet-700 border border-violet-200' if target_app.status == 'shortlisted' else ('bg-amber-50 text-amber-700 border border-amber-200' if target_app.status == 'interview' else ('bg-rose-50 text-rose-700 border border-rose-200' if target_app.status == 'rejected' else 'bg-blue-50 text-blue-700 border border-blue-200'))) }}">
+        {{ target_app.status.replace('_', ' ').capitalize() }}
+      </span>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Candidate Hero Card -->
+  <div class="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm">
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+      
+      <!-- Profile Header Info -->
+      <div class="flex items-start sm:items-center gap-5">
+        <div class="w-16 h-16 rounded-2xl bg-ink text-white font-extrabold text-2xl flex items-center justify-center shrink-0 shadow-md">
+          {{ candidate.full_name[:1]|upper }}
+        </div>
+        <div>
+          <div class="flex items-center gap-3 flex-wrap">
+            <h1 class="text-2xl font-extrabold text-ink">{{ candidate.full_name }}</h1>
+            {% if candidate.experience_level %}
+            <span class="text-xs font-semibold px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700">
+              {{ candidate.experience_level|capitalize }} Level
+            </span>
+            {% endif %}
+          </div>
+          <p class="text-sm text-slate-500 mt-1 font-medium">{{ candidate.headline or 'Candidate Profile' }}</p>
+          
+          <!-- Contact & Meta Links -->
+          <div class="flex items-center gap-4 text-xs text-slate-400 mt-3 flex-wrap">
+            <span><i class="bi bi-envelope mr-1.5 text-slate-500"></i>{{ candidate.email }}</span>
+            {% if candidate.phone %}
+            <span><i class="bi bi-telephone mr-1.5 text-slate-500"></i>{{ candidate.phone }}</span>
+            {% endif %}
+            <span><i class="bi bi-geo-alt mr-1.5 text-slate-500"></i>{{ candidate.location or 'Remote / Global' }}</span>
+            {% if candidate.linkedin_url %}
+            <a href="{{ candidate.linkedin_url }}" target="_blank" class="text-indigo-600 hover:underline inline-flex items-center gap-1">
+              <i class="bi bi-linkedin"></i> LinkedIn
+            </a>
+            {% endif %}
+            {% if candidate.github_url %}
+            <a href="{{ candidate.github_url }}" target="_blank" class="text-indigo-600 hover:underline inline-flex items-center gap-1">
+              <i class="bi bi-github"></i> GitHub
+            </a>
+            {% endif %}
+            {% if candidate.portfolio_url %}
+            <a href="{{ candidate.portfolio_url }}" target="_blank" class="text-indigo-600 hover:underline inline-flex items-center gap-1">
+              <i class="bi bi-globe"></i> Portfolio
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Job Context Selector (if evaluating against a specific job) -->
+      <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 lg:min-w-[280px] shrink-0">
+        <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Evaluating Against Job:</label>
+        <form method="GET" action="{{ url_for('recruiter.candidate_intelligence', candidate_id=candidate.id) }}">
+          <select name="job_id" onchange="this.form.submit()" class="w-full bg-white border border-slate-200 text-xs font-bold rounded-xl px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all shadow-sm">
+            {% for j in recruiter_jobs %}
+            <option value="{{ j.id }}" {{ 'selected' if target_job and target_job.id == j.id else '' }}>
+              {{ j.title }}
+            </option>
+            {% endfor %}
+          </select>
+        </form>
+      </div>
+
+    </div>
+
+    <!-- Quick Action Bar -->
+    {% if target_app %}
+    <div class="mt-6 pt-6 border-t border-slate-100 flex items-center justify-between gap-4 flex-wrap">
+      <div class="text-xs text-slate-400">
+        Applied on <strong class="text-slate-700">{{ target_app.applied_at.strftime('%B %d, %Y') }}</strong>
+      </div>
+
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <form method="POST" action="{{ url_for('recruiter.update_application_status', application_id=target_app.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          <input type="hidden" name="status" value="shortlisted"/>
+          <input type="hidden" name="return_to" value="intelligence"/>
+          <button type="submit" class="text-xs font-semibold px-3.5 py-2 rounded-xl {{ 'bg-violet-600 text-white shadow-sm' if target_app.status == 'shortlisted' else 'border border-slate-200 text-slate-700 hover:bg-slate-50' }} transition-colors">
+            <i class="bi bi-bookmark-check mr-1"></i>Shortlist
+          </button>
+        </form>
+
+        <form method="POST" action="{{ url_for('recruiter.update_application_status', application_id=target_app.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          <input type="hidden" name="status" value="interview"/>
+          <input type="hidden" name="return_to" value="intelligence"/>
+          <button type="submit" class="text-xs font-semibold px-3.5 py-2 rounded-xl {{ 'bg-amber-600 text-white shadow-sm' if target_app.status == 'interview' else 'border border-slate-200 text-slate-700 hover:bg-slate-50' }} transition-colors">
+            <i class="bi bi-calendar-event mr-1"></i>Schedule Interview
+          </button>
+        </form>
+
+        <form method="POST" action="{{ url_for('recruiter.update_application_status', application_id=target_app.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          <input type="hidden" name="status" value="hired"/>
+          <input type="hidden" name="return_to" value="intelligence"/>
+          <button type="submit" class="text-xs font-semibold px-3.5 py-2 rounded-xl {{ 'bg-emerald-600 text-white shadow-sm' if target_app.status == 'hired' else 'border border-slate-200 text-slate-700 hover:bg-slate-50' }} transition-colors">
+            <i class="bi bi-check-circle mr-1"></i>Mark as Hired
+          </button>
+        </form>
+
+        <form method="POST" action="{{ url_for('recruiter.update_application_status', application_id=target_app.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          <input type="hidden" name="status" value="rejected"/>
+          <input type="hidden" name="return_to" value="intelligence"/>
+          <button type="submit" class="text-xs font-semibold px-3.5 py-2 rounded-xl text-rose-600 border border-slate-200 hover:border-rose-200 hover:bg-rose-50 transition-colors">
+            <i class="bi bi-x-circle mr-1"></i>Reject
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- AI Intelligence Core Section -->
+  <div class="grid lg:grid-cols-3 gap-8 mt-8">
+    
+    <!-- Left 2 Cols: Deep Matching Breakdown & Evidence -->
+    <div class="lg:col-span-2 space-y-6">
+      
+      {% if match_data %}
+      <!-- Match Score & Highlights -->
+      <div class="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-6 border-b border-slate-100">
+          <div>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/60 mb-2">
+              <i class="bi bi-stars"></i> Zentra Intelligence Assessment
+            </span>
+            <h2 class="text-xl font-extrabold text-ink">Role Suitability Analysis</h2>
+            <p class="text-xs text-slate-500 mt-1">Computed against <strong class="text-slate-800">{{ target_job.title }}</strong></p>
+          </div>
+
+          <div class="flex items-center gap-4 bg-gradient-to-br from-indigo-50 to-lavender/70 border border-indigo-100 p-4 rounded-2xl shrink-0">
+            <div class="text-center">
+              <span class="text-3xl font-black text-indigo-700 leading-none">{{ match_data.score }}%</span>
+              <p class="text-[10px] font-bold text-indigo-900 uppercase tracking-wider mt-1">{{ match_data.tier_label }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metric Component Bars -->
+        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+          <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+            <p class="text-[11px] font-bold text-slate-400 uppercase">Skills Match</p>
+            <p class="text-lg font-extrabold text-ink mt-1">{{ match_data.breakdown['Skills Match'] }}%</p>
+          </div>
+          <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+            <p class="text-[11px] font-bold text-slate-400 uppercase">Experience Fit</p>
+            <p class="text-lg font-extrabold text-ink mt-1">{{ match_data.breakdown['Experience Match'] }}%</p>
+          </div>
+          <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+            <p class="text-[11px] font-bold text-slate-400 uppercase">Job Relevance</p>
+            <p class="text-lg font-extrabold text-ink mt-1">{{ match_data.breakdown['Job Relevance'] }}%</p>
+          </div>
+          <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+            <p class="text-[11px] font-bold text-slate-400 uppercase">ATS Readability</p>
+            <p class="text-lg font-extrabold text-ink mt-1">{{ match_data.breakdown['ATS Compatibility'] }}%</p>
+          </div>
+        </div>
+
+        <!-- 1. Skills Evidence (Matched vs Missing vs Related) -->
+        <div class="mt-8">
+          <h3 class="text-sm font-bold text-ink mb-3">Skills Alignment Evidence</h3>
+          
+          <div class="space-y-3">
+            <!-- Matched Skills -->
+            <div class="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100">
+              <div class="flex items-center gap-2 mb-2 text-xs font-bold text-emerald-800">
+                <i class="bi bi-check-circle-fill text-emerald-600"></i> Matched Technical Skills ({{ match_data.skills_ui.matched|length }})
+              </div>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                {% if match_data.skills_ui.matched %}
+                  {% for s in match_data.skills_ui.matched %}
+                  <span class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-emerald-100/70 text-emerald-800">{{ s }}</span>
+                  {% endfor %}
+                {% else %}
+                  <span class="text-xs text-slate-500 italic">No exact keyword overlap</span>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Related / Transferable Frameworks -->
+            {% if match_data.skills_ui.related %}
+            <div class="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100">
+              <div class="flex items-center gap-2 mb-2 text-xs font-bold text-indigo-900">
+                <i class="bi bi-arrow-left-right text-indigo-600"></i> Transferable / Alternative Skills
+              </div>
+              <div class="space-y-1.5 text-xs text-indigo-950">
+                {% for rel in match_data.skills_ui.related %}
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-indigo-700">{{ rel.resume_skill }}</span>
+                  <span class="text-slate-400">serves as alternative for</span>
+                  <span class="font-semibold text-slate-800">{{ rel.jd_skill }}</span>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
+
+            <!-- Missing Skills -->
+            {% if match_data.skills_ui.missing %}
+            <div class="p-4 rounded-2xl bg-rose-50/50 border border-rose-100">
+              <div class="flex items-center gap-2 mb-2 text-xs font-bold text-rose-800">
+                <i class="bi bi-x-circle-fill text-rose-500"></i> Missing / Unverified Skills ({{ match_data.skills_ui.missing|length }})
+              </div>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                {% for s in match_data.skills_ui.missing %}
+                <span class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-rose-100/70 text-rose-800">{{ s }}</span>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- 2. Requirements & Experience Verification -->
+        <div class="mt-8 pt-6 border-t border-slate-100">
+          <h3 class="text-sm font-bold text-ink mb-3">Requirements & Experience Fit</h3>
+          <div class="grid sm:grid-cols-2 gap-4">
+            
+            <div class="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
+              <p class="text-xs font-bold text-slate-700">Experience Alignment</p>
+              <div class="text-xs space-y-1 text-slate-600">
+                <p><strong>Candidate Stated:</strong> {{ structured_resume.experience.min_years or 'Not explicitly stated' }} years ({{ structured_resume.experience.seniority|capitalize }})</p>
+                <p><strong>Job Requirement:</strong> {{ structured_jd.experience.min_years or 'Flexible' }} years ({{ structured_jd.experience.seniority|capitalize }})</p>
+              </div>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
+              <p class="text-xs font-bold text-slate-700">Education Credentials</p>
+              <div class="text-xs space-y-1 text-slate-600">
+                <p><strong>Degrees on File:</strong> {{ structured_resume.education.degrees|join(', ') if structured_resume.education.degrees else 'Verified in Resume' }}</p>
+                <p><strong>Degree Target:</strong> {{ structured_jd.education.degrees|join(' / ') if structured_jd.education.degrees else 'Open / Relevant Field' }}</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+      {% endif %}
+
+      <!-- Full Resume Viewer Tab Pane -->
+      <div class="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+          <h2 class="text-base font-bold text-ink flex items-center gap-2">
+            <i class="bi bi-file-earmark-person text-indigo-600"></i> Candidate Resume & Career History
+          </h2>
+          {% if resume and resume.filename %}
+          <span class="text-xs text-slate-400"><i class="bi bi-filetype-pdf mr-1"></i>{{ resume.filename }}</span>
+          {% endif %}
+        </div>
+
+        <div class="mt-6 space-y-6 text-sm text-slate-700 leading-relaxed">
+          {% if candidate.experience %}
+          <div>
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Experience Highlights</h3>
+            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 whitespace-pre-line text-xs">
+              {{ candidate.experience }}
+            </div>
+          </div>
+          {% endif %}
+
+          {% if resume and resume.raw_text %}
+          <div>
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Full Parsed Resume Content</h3>
+            <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200 text-xs font-mono whitespace-pre-line max-h-96 overflow-y-auto leading-relaxed text-slate-800">
+              {{ resume.raw_text }}
+            </div>
+          </div>
+          {% else %}
+          <div class="text-center py-6 text-slate-400 text-xs">
+            Candidate has not uploaded a standalone resume file. Profile career records are shown above.
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right 1 Col: Recruiter Notes, Timeline & Applications History -->
+    <div class="space-y-6">
+      
+      <!-- Private Recruiter Notes & Timeline -->
+      {% if target_app %}
+      <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+        <h2 class="text-base font-bold text-ink flex items-center justify-between pb-3 border-b border-slate-100">
+          <span>Recruiter Notes & Timeline</span>
+          <i class="bi bi-journal-text text-indigo-600"></i>
+        </h2>
+
+        <!-- Add Note Form -->
+        <form method="POST" action="{{ url_for('recruiter.add_recruiter_note', application_id=target_app.id) }}" class="mt-4">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          <textarea name="note" rows="3" placeholder="Add private feedback, interview remarks..." required 
+                    class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all"></textarea>
+          <div class="mt-2 flex justify-end">
+            <button type="submit" class="bg-ink text-white text-xs font-semibold px-4 py-1.5 rounded-lg hover:bg-slate-800 transition-colors">
+              Save Note
+            </button>
+          </div>
+        </form>
+
+        <!-- Chronological Timeline -->
+        <div class="mt-6 space-y-3">
+          {% if not timeline_events %}
+          <p class="text-xs text-slate-400 text-center py-4">No events or notes recorded yet.</p>
+          {% else %}
+          {% for ev in timeline_events %}
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs">
+            <div class="flex items-center justify-between gap-2 text-[10px] text-slate-400 mb-1">
+              <span class="font-bold text-slate-700">{{ ev.status.replace('_', ' ').capitalize() }}</span>
+              <span>{{ ev.created_at.strftime('%b %d, %H:%M') }}</span>
+            </div>
+            {% if ev.note %}
+            <p class="text-slate-700 leading-relaxed">{{ ev.note }}</p>
+            {% endif %}
+          </div>
+          {% endfor %}
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Applied Jobs History -->
+      <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+        <h2 class="text-base font-bold text-ink pb-3 border-b border-slate-100 flex items-center justify-between">
+          <span>Applied Openings</span>
+          <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{{ applications|length }}</span>
+        </h2>
+
+        <div class="mt-4 space-y-3">
+          {% if not applications %}
+          <p class="text-xs text-slate-400 text-center py-4">Direct database discovery candidate (no active applications submitted yet).</p>
+          {% else %}
+          {% for app in applications %}
+          <div class="p-3.5 rounded-2xl border transition-colors {{ 'bg-indigo-50/50 border-indigo-200' if target_app and target_app.id == app.id else 'bg-slate-50 border-slate-100' }}">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <p class="text-xs font-bold text-ink">{{ app.job.title }}</p>
+                <p class="text-[10px] text-slate-400">Applied {{ app.applied_at.strftime('%b %d, %Y') }}</p>
+              </div>
+              {% if app.match_score %}
+              <span class="text-xs font-extrabold px-2 py-0.5 rounded-md {{ 'bg-emerald-100 text-emerald-800' if app.match_score >= 80 else 'bg-indigo-100 text-indigo-800' }}">
+                {{ app.match_score|round|int }}%
+              </span>
+              {% endif %}
+            </div>
+            
+            {% if target_app and target_app.id != app.id %}
+            <div class="mt-2 pt-2 border-t border-slate-200/60 flex justify-end">
+              <a href="{{ url_for('recruiter.candidate_intelligence', candidate_id=candidate.id, job_id=app.job_id) }}" class="text-[11px] font-bold text-indigo-600 hover:underline">
+                Switch Evaluation Context →
+              </a>
+            </div>
+            {% endif %}
+          </div>
+          {% endfor %}
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

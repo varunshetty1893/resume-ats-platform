@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block title %}Zentra — Jobs Management{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-6 lg:px-10 py-10">
+  
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-8 border-b border-slate-100">
+    <div>
+      <h1 class="text-3xl font-extrabold tracking-tight text-ink">Job Workspaces</h1>
+      <p class="text-sm text-slate-500 mt-1">Manage job postings, track applicant counts, and control publishing status.</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="{{ url_for('recruiter.new_job') }}" class="bg-ink text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-slate-800 transition-colors shadow-sm inline-flex items-center gap-2">
+        <i class="bi bi-plus-lg"></i>Create Job
+      </a>
+    </div>
+  </div>
+
+  <!-- Filters & Search Toolbar -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-8">
+    <!-- Status Filter Pills -->
+    <div class="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0">
+      <a href="{{ url_for('recruiter.jobs', status='all', q=q) }}" 
+         class="px-4 py-2 rounded-xl text-xs font-semibold transition-colors {{ 'bg-ink text-white shadow-sm' if status_filter == 'all' else 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
+        All Jobs <span class="ml-1 opacity-70">({{ counts.all }})</span>
+      </a>
+      <a href="{{ url_for('recruiter.jobs', status='active', q=q) }}" 
+         class="px-4 py-2 rounded-xl text-xs font-semibold transition-colors {{ 'bg-emerald-600 text-white shadow-sm' if status_filter == 'active' else 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
+        Active <span class="ml-1 opacity-70">({{ counts.active }})</span>
+      </a>
+      <a href="{{ url_for('recruiter.jobs', status='draft', q=q) }}" 
+         class="px-4 py-2 rounded-xl text-xs font-semibold transition-colors {{ 'bg-amber-600 text-white shadow-sm' if status_filter == 'draft' else 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
+        Drafts <span class="ml-1 opacity-70">({{ counts.draft }})</span>
+      </a>
+      <a href="{{ url_for('recruiter.jobs', status='paused', q=q) }}" 
+         class="px-4 py-2 rounded-xl text-xs font-semibold transition-colors {{ 'bg-blue-600 text-white shadow-sm' if status_filter == 'paused' else 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
+        Paused <span class="ml-1 opacity-70">({{ counts.paused }})</span>
+      </a>
+      <a href="{{ url_for('recruiter.jobs', status='closed', q=q) }}" 
+         class="px-4 py-2 rounded-xl text-xs font-semibold transition-colors {{ 'bg-slate-700 text-white shadow-sm' if status_filter == 'closed' else 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
+        Closed <span class="ml-1 opacity-70">({{ counts.closed }})</span>
+      </a>
+    </div>
+
+    <!-- Search Form -->
+    <form method="GET" action="{{ url_for('recruiter.jobs') }}" class="flex items-center gap-2 max-w-sm w-full">
+      <input type="hidden" name="status" value="{{ status_filter }}"/>
+      <div class="relative flex-1">
+        <i class="bi bi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
+        <input type="text" name="q" value="{{ q }}" placeholder="Search jobs by title, location..." 
+               class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all"/>
+      </div>
+      {% if q %}
+      <a href="{{ url_for('recruiter.jobs', status=status_filter) }}" class="p-2.5 rounded-xl border border-slate-200 text-slate-400 hover:text-ink text-xs transition-colors" title="Clear Search">
+        <i class="bi bi-x-lg"></i>
+      </a>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- Job Workspaces List -->
+  <div class="mt-6 space-y-4">
+    {% if not job_cards %}
+    <div class="bg-white border border-slate-200 rounded-3xl p-12 text-center">
+      <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+        <i class="bi bi-briefcase text-2xl"></i>
+      </div>
+      <h3 class="font-bold text-ink text-base">No jobs found</h3>
+      <p class="text-xs text-slate-400 mt-1">Try adjusting your filters or create a new job position.</p>
+    </div>
+    {% else %}
+    {% for card in job_cards %}
+    {% set job = card.job %}
+    <div class="bg-white border border-slate-200 rounded-3xl p-6 hover:shadow-md transition-shadow">
+      
+      <!-- Top info bar -->
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+        <div>
+          <div class="flex items-center gap-3 flex-wrap">
+            <h2 class="text-lg font-bold text-ink hover:text-indigo-600 transition-colors">
+              <a href="{{ url_for('recruiter.job_overview', job_id=job.id) }}">{{ job.title }}</a>
+            </h2>
+            
+            <!-- Status Badge -->
+            {% if job.status == 'active' %}
+            <span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
+            </span>
+            {% elif job.status == 'draft' %}
+            <span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Draft
+            </span>
+            {% elif job.status == 'paused' %}
+            <span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Paused
+            </span>
+            {% else %}
+            <span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Closed
+            </span>
+            {% endif %}
+
+            <span class="text-xs font-semibold px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700">
+              {{ job.work_mode|capitalize }}
+            </span>
+            <span class="text-xs font-semibold px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-600">
+              {{ job.experience_level|capitalize }} Level
+            </span>
+          </div>
+
+          <div class="flex items-center gap-4 text-xs text-slate-400 mt-2 flex-wrap">
+            <span><i class="bi bi-geo-alt mr-1 text-slate-500"></i>{{ job.location or 'Remote' }}</span>
+            <span><i class="bi bi-calendar3 mr-1 text-slate-500"></i>Posted {{ job.created_at.strftime('%b %d, %Y') }}</span>
+            {% if job.salary_min or job.salary_max %}
+            <span><i class="bi bi-cash-stack mr-1 text-slate-500"></i>₹{{ job.salary_min or '—' }}{% if job.salary_max %} - ₹{{ job.salary_max }}{% endif %} LPA</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Right Side: Applicant Count Badges & Status Switcher -->
+        <div class="flex items-center gap-4 shrink-0 flex-wrap">
+          
+          <!-- Applicant Metrics Pill -->
+          <div class="bg-slate-50 border border-slate-200/80 rounded-2xl px-4 py-2 flex items-center gap-4 text-center">
+            <div>
+              <span class="text-sm font-extrabold text-ink block leading-none">{{ card.total_applicants }}</span>
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Applicants</span>
+            </div>
+            <div class="w-px h-6 bg-slate-200"></div>
+            <div>
+              <span class="text-sm font-extrabold text-violet-600 block leading-none">{{ card.shortlisted }}</span>
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Shortlisted</span>
+            </div>
+            <div class="w-px h-6 bg-slate-200"></div>
+            <div>
+              <span class="text-sm font-extrabold text-emerald-600 block leading-none">{{ card.hired }}</span>
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hired</span>
+            </div>
+          </div>
+
+          <!-- Status Dropdown Menu Form -->
+          <form method="POST" action="{{ url_for('recruiter.update_job_status', job_id=job.id) }}" class="flex items-center gap-1.5">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <select name="status" onchange="this.form.submit()" 
+                    class="bg-white border border-slate-200 text-xs font-bold rounded-xl px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all shadow-sm">
+              <option value="active" {{ 'selected' if job.status == 'active' else '' }}>🟢 Set Active</option>
+              <option value="draft" {{ 'selected' if job.status == 'draft' else '' }}>🟡 Save Draft</option>
+              <option value="paused" {{ 'selected' if job.status == 'paused' else '' }}>🔵 Pause</option>
+              <option value="closed" {{ 'selected' if job.status == 'closed' else '' }}>⚪ Close</option>
+            </select>
+          </form>
+
+          <a href="{{ url_for('recruiter.edit_job', job_id=job.id) }}" class="text-xs font-semibold border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-700 transition-colors flex items-center gap-1">
+            <i class="bi bi-pencil"></i>Edit
+          </a>
+        </div>
+      </div>
+
+      <!-- Workspace Step Bar (Overview → Applicants → AI Shortlist → Pipeline) -->
+      <div class="pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Workspace:</span>
+          
+          <a href="{{ url_for('recruiter.job_overview', job_id=job.id) }}" 
+             class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-50 text-slate-700 hover:bg-lavender hover:text-indigo-700 border border-slate-200/80 transition-colors">
+            <i class="bi bi-info-circle text-slate-400"></i>Overview
+          </a>
+          
+          <i class="bi bi-chevron-right text-[10px] text-slate-300"></i>
+          
+          <a href="{{ url_for('recruiter.applicants', job_id=job.id) }}" 
+             class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-50 text-slate-700 hover:bg-lavender hover:text-indigo-700 border border-slate-200/80 transition-colors">
+            <i class="bi bi-people text-slate-400"></i>Applicants
+            <span class="px-1.5 py-0.2 rounded-full bg-slate-200 text-[10px] font-bold">{{ card.total_applicants }}</span>
+          </a>
+
+          <i class="bi bi-chevron-right text-[10px] text-slate-300"></i>
+
+          <a href="{{ url_for('recruiter.job_shortlist', job_id=job.id) }}" 
+             class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-50/80 text-indigo-700 hover:bg-indigo-100 border border-indigo-200/60 transition-colors">
+            <i class="bi bi-stars text-indigo-600"></i>AI Shortlist
+            {% if card.shortlisted %}
+            <span class="px-1.5 py-0.2 rounded-full bg-indigo-200 text-indigo-900 text-[10px] font-bold">{{ card.shortlisted }}</span>
+            {% endif %}
+          </a>
+
+          <i class="bi bi-chevron-right text-[10px] text-slate-300"></i>
+
+          <a href="{{ url_for('recruiter.pipeline', job_id=job.id) }}" 
+             class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-50 text-slate-700 hover:bg-lavender hover:text-indigo-700 border border-slate-200/80 transition-colors">
+            <i class="bi bi-kanban text-slate-400"></i>Pipeline
+          </a>
+        </div>
+
+        {% if card.avg_match %}
+        <div class="text-xs text-slate-400 flex items-center gap-1">
+          <i class="bi bi-stars text-indigo-600"></i> Avg Match: <strong class="text-indigo-700 font-bold">{{ card.avg_match }}%</strong>
+        </div>
+        {% endif %}
+      </div>
+
+    </div>
+    {% endfor %}
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

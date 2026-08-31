@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% import "admin/_pagination.html" as pg %}
+{% block title %}Zentra — Admin Applications Tracking{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-6 lg:px-10 py-10 space-y-6 fade-up">
+
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+    <div>
+      <h1 class="text-3xl font-extrabold tracking-tight text-ink">Applications Monitor</h1>
+      <p class="text-sm text-slate-500 mt-1">Platform-wide application overview, match score inspection, and candidate pipeline tracking.</p>
+    </div>
+  </div>
+
+  <!-- Status Filter Tabs -->
+  <div class="flex flex-wrap items-center gap-1 bg-slate-100/90 rounded-xl p-1 w-fit">
+    <a href="{{ url_for('admin.applications', q=q) }}"
+       class="px-4 py-2 rounded-lg text-sm font-semibold transition-all
+              {{ 'bg-white text-ink shadow-sm' if not status_filter else 'text-slate-500 hover:text-ink' }}">
+      All
+      <span class="ml-1 text-xs text-slate-400 font-normal">({{ status_counts['all'] }})</span>
+    </a>
+    {% for s in ['applied', 'under_review', 'shortlisted', 'interview', 'hired', 'rejected'] %}
+    <a href="{{ url_for('admin.applications', status=s, q=q) }}"
+       class="px-4 py-2 rounded-lg text-sm font-semibold transition-all
+              {{ 'bg-white text-ink shadow-sm' if status_filter == s else 'text-slate-500 hover:text-ink' }}">
+      {{ s | replace('_', ' ') | title }}
+      <span class="ml-1 text-xs text-slate-400 font-normal">({{ status_counts[s] }})</span>
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- Search -->
+  <form method="GET" class="flex flex-wrap gap-3 bg-white p-4 rounded-2xl border border-slate-200/90 shadow-sm max-w-lg">
+    <input type="hidden" name="status" value="{{ status_filter }}">
+    <input type="text" name="q" value="{{ q }}" placeholder="Search candidate, job title, or company…"
+           class="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-ink focus:ring-2 focus:ring-slate-100">
+    <button type="submit" class="bg-ink text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-800 transition-colors shadow-sm">Search</button>
+    {% if q or status_filter %}
+    <a href="{{ url_for('admin.applications') }}" class="border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">Clear</a>
+    {% endif %}
+  </form>
+
+  <!-- Applications Table -->
+  <div class="bg-white border border-slate-200/90 rounded-2xl shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs text-slate-500 font-semibold uppercase tracking-wider border-b border-slate-100">
+          <tr>
+            <th class="px-6 py-3.5 text-left">Candidate</th>
+            <th class="px-6 py-3.5 text-left">Target Job</th>
+            <th class="px-6 py-3.5 text-left">Company</th>
+            <th class="px-6 py-3.5 text-left">ATS Match</th>
+            <th class="px-6 py-3.5 text-left">Status</th>
+            <th class="px-6 py-3.5 text-left">Applied Date</th>
+            <th class="px-6 py-3.5 text-left">Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for app in apps_pagination.items %}
+          <tr class="hover:bg-slate-50/60 transition-colors">
+            <td class="px-6 py-4">
+              <div class="flex items-center gap-2.5">
+                <span class="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0">
+                  {{ app.candidate.full_name[:1]|upper }}
+                </span>
+                <div>
+                  <a href="{{ url_for('admin.user_detail', user_id=app.candidate_id) }}" class="font-bold text-ink hover:text-indigo-600 transition-colors">
+                    {{ app.candidate.full_name }}
+                  </a>
+                  <p class="text-xs text-slate-400">{{ app.candidate.email }}</p>
+                </div>
+              </div>
+            </td>
+            <td class="px-6 py-4">
+              <a href="{{ url_for('admin.job_detail', job_id=app.job_id) }}" class="font-semibold text-ink hover:text-indigo-600">
+                {{ app.job.title }}
+              </a>
+            </td>
+            <td class="px-6 py-4 text-slate-600 font-medium">{{ app.job.recruiter_profile.company_name }}</td>
+            <td class="px-6 py-4">
+              {% if app.match_score is not none %}
+              <span class="font-bold {{ 'text-emerald-600' if app.match_score >= 70 else ('text-amber-600' if app.match_score >= 40 else 'text-rose-600') }}">{{ app.match_score|int }}%</span>
+              {% else %}<span class="text-slate-300">—</span>{% endif %}
+            </td>
+            <td class="px-6 py-4">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ 'bg-emerald-50 text-emerald-700 border border-emerald-200' if app.status == 'hired' else ('bg-indigo-50 text-indigo-700 border border-indigo-200' if app.status == 'interview' else ('bg-amber-50 text-amber-700 border border-amber-200' if app.status == 'shortlisted' else ('bg-rose-50 text-rose-700 border border-rose-200' if app.status == 'rejected' else 'bg-slate-100 text-slate-600 border border-slate-200'))) }}">
+                {{ app.status | replace('_', ' ') | title }}
+              </span>
+            </td>
+            <td class="px-6 py-4 text-slate-400 text-xs">{{ app.applied_at.strftime('%b %d, %Y') }}</td>
+            <td class="px-6 py-4">
+              <a href="{{ url_for('admin.application_detail', app_id=app.id) }}"
+                 class="text-indigo-600 hover:text-indigo-800 text-xs font-semibold hover:underline">Inspect Dossier →</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="px-6 py-12 text-center text-slate-400">No applications found matching criteria.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination Bar -->
+    {{ pg.render_pagination(apps_pagination, 'admin.applications', 'applications') }}
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}Zentra — Recruiter Dashboard{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-6 lg:px-10 py-10">
+  
+  <!-- Header with Company & CTA -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-8 border-b border-slate-100">
+    <div>
+      <div class="flex items-center gap-3">
+        <h1 class="text-3xl font-extrabold tracking-tight text-ink">{{ profile.company_name }}</h1>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold {{ 'bg-emerald-50 text-emerald-700 border border-emerald-200' if profile.approval_status == 'approved' else ('bg-amber-50 text-amber-700 border border-amber-200' if profile.approval_status == 'pending' else 'bg-rose-50 text-rose-700 border border-rose-200') }}">
+          <span class="w-1.5 h-1.5 rounded-full {{ 'bg-emerald-500' if profile.approval_status == 'approved' else ('bg-amber-500' if profile.approval_status == 'pending' else 'bg-rose-500') }}"></span>
+          {{ profile.approval_status|capitalize }} Recruiter
+        </span>
+      </div>
+      <p class="text-sm text-slate-500 mt-1">Welcome back, <span class="font-medium text-ink">{{ current_user.full_name }}</span>. Here's your real-time recruitment snapshot.</p>
+    </div>
+    {% if profile.approval_status == 'approved' %}
+    <div class="flex items-center gap-3">
+      <a href="{{ url_for('recruiter.candidates') }}" class="text-sm font-semibold border border-slate-200 px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-colors">
+        <i class="bi bi-people mr-1.5"></i>Search Candidates
+      </a>
+      <a href="{{ url_for('recruiter.new_job') }}" class="bg-ink text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-slate-800 transition-colors shadow-sm inline-flex items-center gap-2">
+        <i class="bi bi-plus-lg"></i>Post a New Job
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if profile.approval_status == 'pending' %}
+  <!-- Pending Approval Alert -->
+  <div class="mt-8 bg-amber-50/70 border border-amber-200/80 rounded-2xl p-6 flex items-start gap-4">
+    <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+      <i class="bi bi-hourglass-split text-lg"></i>
+    </div>
+    <div>
+      <h3 class="font-bold text-amber-900">Your account is undergoing fast-track verification</h3>
+      <p class="text-sm text-amber-700 mt-1">An admin is reviewing your company credentials. You will receive an instant notification once approved to publish jobs and unlock candidate matching.</p>
+      <div class="mt-3 flex items-center gap-3">
+        <a href="{{ url_for('recruiter.company_profile') }}" class="text-xs font-semibold text-amber-800 underline hover:no-underline">Review Company Details</a>
+      </div>
+    </div>
+  </div>
+
+  {% elif profile.approval_status == 'rejected' %}
+  <!-- Rejected Notice -->
+  <div class="mt-8 bg-rose-50 border border-rose-200 rounded-2xl p-6 flex items-start gap-4">
+    <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+      <i class="bi bi-x-circle text-lg"></i>
+    </div>
+    <div>
+      <h3 class="font-bold text-rose-900">Registration Not Approved</h3>
+      {% if profile.rejection_reason %}
+      <p class="text-sm text-rose-700 mt-1">Reason: {{ profile.rejection_reason }}</p>
+      {% endif %}
+      <p class="text-sm text-rose-600 mt-1">Please update your company documentation in your profile settings or reach out to support.</p>
+    </div>
+  </div>
+
+  {% else %}
+
+  <!-- 1. Hiring Alerts Banner (if any) -->
+  {% if hiring_alerts %}
+  <div class="mt-8 space-y-3">
+    {% for alert in hiring_alerts %}
+    <div class="flex items-center justify-between gap-4 p-4 rounded-xl border {{ 'bg-indigo-50/60 border-indigo-100 text-indigo-900' if alert.type == 'info' else 'bg-emerald-50/60 border-emerald-100 text-emerald-900' }}">
+      <div class="flex items-center gap-3">
+        <span class="w-8 h-8 rounded-lg {{ 'bg-indigo-100 text-indigo-600' if alert.type == 'info' else 'bg-emerald-100 text-emerald-600' }} flex items-center justify-center shrink-0">
+          <i class="bi {{ 'bi-lightning-charge' if alert.type == 'info' else 'bi-stars' }}"></i>
+        </span>
+        <div>
+          <p class="text-sm font-bold">{{ alert.title }}</p>
+          <p class="text-xs {{ 'text-indigo-700' if alert.type == 'info' else 'text-emerald-700' }}">{{ alert.desc }}</p>
+        </div>
+      </div>
+      <a href="{{ alert.link }}" class="text-xs font-semibold px-3 py-1.5 rounded-lg {{ 'bg-indigo-600 text-white hover:bg-indigo-700' if alert.type == 'info' else 'bg-emerald-600 text-white hover:bg-emerald-700' }} shrink-0 transition-colors">
+        View Action <i class="bi bi-arrow-right ml-1"></i>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- 2. Metric Overview Cards -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-5 mt-8">
+    <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+      <div class="flex items-center justify-between">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Active Jobs</p>
+        <span class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center"><i class="bi bi-briefcase"></i></span>
+      </div>
+      <p class="text-3xl font-extrabold text-ink mt-3">{{ active_jobs_count }}</p>
+      <div class="flex items-center gap-1.5 mt-2 text-xs text-slate-500">
+        <a href="{{ url_for('recruiter.jobs') }}" class="text-indigo-600 hover:underline font-semibold flex items-center gap-1">Manage Jobs <i class="bi bi-chevron-right text-[10px]"></i></a>
+      </div>
+    </div>
+
+    <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+      <div class="flex items-center justify-between">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Applicants</p>
+        <span class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><i class="bi bi-people"></i></span>
+      </div>
+      <p class="text-3xl font-extrabold text-ink mt-3">{{ total_applicants_count }}</p>
+      <div class="flex items-center gap-1.5 mt-2 text-xs text-slate-500">
+        <a href="{{ url_for('recruiter.candidates') }}" class="text-indigo-600 hover:underline font-semibold flex items-center gap-1">Candidate DB <i class="bi bi-chevron-right text-[10px]"></i></a>
+      </div>
+    </div>
+
+    <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+      <div class="flex items-center justify-between">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Shortlisted</p>
+        <span class="w-9 h-9 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center"><i class="bi bi-bookmark-check"></i></span>
+      </div>
+      <p class="text-3xl font-extrabold text-ink mt-3">{{ shortlisted_count }}</p>
+      <div class="flex items-center gap-1.5 mt-2 text-xs text-slate-500">
+        <a href="{{ url_for('recruiter.pipeline') }}" class="text-indigo-600 hover:underline font-semibold flex items-center gap-1">View in Pipeline <i class="bi bi-chevron-right text-[10px]"></i></a>
+      </div>
+    </div>
+
+    <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+      <div class="flex items-center justify-between">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Interviews</p>
+        <span class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center"><i class="bi bi-calendar-event"></i></span>
+      </div>
+      <p class="text-3xl font-extrabold text-ink mt-3">{{ interviews_count }}</p>
+      <div class="flex items-center gap-1.5 mt-2 text-xs text-slate-500">
+        <a href="{{ url_for('recruiter.analytics') }}" class="text-indigo-600 hover:underline font-semibold flex items-center gap-1">Hiring Metrics <i class="bi bi-chevron-right text-[10px]"></i></a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Two Columns: Active Job Postings & Recent Activity -->
+  <div class="grid lg:grid-cols-3 gap-8 mt-10">
+    
+    <!-- Left 2 Cols: Active Job Postings Workspace -->
+    <div class="lg:col-span-2 space-y-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-ink">Active Job Openings</h2>
+          <p class="text-xs text-slate-400">Manage recruitment workspaces and applicant queues.</p>
+        </div>
+        <a href="{{ url_for('recruiter.jobs') }}" class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
+          View all jobs <i class="bi bi-arrow-right"></i>
+        </a>
+      </div>
+
+      {% if not jobs %}
+      <div class="bg-white border border-dashed border-slate-300 rounded-2xl p-10 text-center">
+        <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
+          <i class="bi bi-briefcase text-2xl"></i>
+        </div>
+        <p class="font-bold text-ink text-base">No open roles yet</p>
+        <p class="text-sm text-slate-500 mt-1 max-w-sm mx-auto">Create your first job posting to start receiving AI-matched applications.</p>
+        <a href="{{ url_for('recruiter.new_job') }}" class="mt-4 inline-flex items-center gap-2 bg-ink text-white text-xs font-semibold px-4 py-2.5 rounded-xl hover:bg-slate-800 transition-colors">
+          <i class="bi bi-plus-lg"></i>Post a Job
+        </a>
+      </div>
+      {% else %}
+      <div class="space-y-3.5">
+        {% for job in jobs[:5] %}
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 hover:border-indigo-200 hover:shadow-sm transition-all">
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <div class="flex items-center gap-2.5 flex-wrap">
+                <a href="{{ url_for('recruiter.job_overview', job_id=job.id) }}" class="font-bold text-ink hover:text-indigo-600 transition-colors text-base">{{ job.title }}</a>
+                <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full {{ 'bg-emerald-50 text-emerald-700 border border-emerald-200' if job.status == 'active' else 'bg-slate-100 text-slate-500 border border-slate-200' }}">
+                  {{ 'Active' if job.status == 'active' else 'Closed' }}
+                </span>
+                <span class="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                  {{ job.work_mode|capitalize }}
+                </span>
+              </div>
+              <div class="flex items-center gap-4 text-xs text-slate-400 mt-2 flex-wrap">
+                <span><i class="bi bi-geo-alt mr-1"></i>{{ job.location or 'Flexible' }}</span>
+                <span><i class="bi bi-clock-history mr-1"></i>{{ job.created_at.strftime('%b %d, %Y') }}</span>
+                <span><i class="bi bi-people mr-1"></i><strong class="text-ink">{{ job.applications|length }}</strong> Applicants</span>
+              </div>
+            </div>
+
+            <!-- Workspace Quick Links -->
+            <div class="flex items-center gap-2 shrink-0">
+              <a href="{{ url_for('recruiter.job_overview', job_id=job.id) }}" class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 transition-colors" title="Job Overview Workspace">
+                Workspace
+              </a>
+              <a href="{{ url_for('recruiter.applicants', job_id=job.id) }}" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors flex items-center gap-1.5">
+                <i class="bi bi-person-lines-fill"></i>Applicants ({{ job.applications|length }})
+              </a>
+              <a href="{{ url_for('recruiter.edit_job', job_id=job.id) }}" class="text-slate-400 hover:text-ink p-1.5 rounded-lg hover:bg-slate-100 transition-colors" title="Edit Job">
+                <i class="bi bi-pencil"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Right 1 Col: Recent Activity & Quick Navigation -->
+    <div class="space-y-6">
+      
+      <!-- Recent Activity Stream -->
+      <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+        <h2 class="text-base font-bold text-ink flex items-center justify-between">
+          <span>Recent Activity</span>
+          <i class="bi bi-activity text-slate-400"></i>
+        </h2>
+        <div class="mt-4 space-y-4">
+          {% if not recent_activity %}
+          <p class="text-xs text-slate-400 text-center py-6">No recent candidate activity recorded yet.</p>
+          {% else %}
+          {% for app in recent_activity %}
+          <div class="flex items-start gap-3 text-xs pb-3 border-b border-slate-100 last:border-0 last:pb-0">
+            <div class="w-8 h-8 rounded-full bg-lavender text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0">
+              {{ app.candidate.full_name[:1]|upper }}
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="font-semibold text-ink truncate">{{ app.candidate.full_name }}</p>
+              <p class="text-slate-500 truncate">Applied for <span class="font-medium text-slate-700">{{ app.job.title }}</span></p>
+              <div class="flex items-center gap-2 mt-1">
+                {% if app.match_score %}
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold {{ 'bg-emerald-50 text-emerald-700' if app.match_score >= 80 else ('bg-indigo-50 text-indigo-700' if app.match_score >= 60 else 'bg-slate-100 text-slate-600') }}">
+                  {{ app.match_score|round|int }}% Match
+                </span>
+                {% endif %}
+                <span class="text-[10px] text-slate-400">{{ app.applied_at.strftime('%b %d') }}</span>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Quick Platform Actions -->
+      <div class="bg-gradient-to-br from-indigo-900 to-ink text-white rounded-2xl p-6 shadow-md">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/10 text-indigo-200 text-xs font-semibold">
+          <i class="bi bi-cpu"></i> Intelligence Active
+        </span>
+        <h3 class="text-lg font-bold mt-3">Smart Candidate Matching</h3>
+        <p class="text-xs text-slate-300 mt-1 leading-relaxed">Zentra scores all applicant resumes against job requirements in real-time.</p>
+        <div class="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
+          <a href="{{ url_for('recruiter.pipeline') }}" class="text-xs font-bold text-white hover:text-indigo-200 inline-flex items-center gap-1">
+            Open Hiring Pipeline <i class="bi bi-arrow-right"></i>
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  {% endif %}
+</div>
+{% endblock %}

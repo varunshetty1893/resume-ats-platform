@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% import "admin/_pagination.html" as pg %}
+{% block title %}Zentra — Registered Organisations & Companies{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-6 lg:px-10 py-10 space-y-6 fade-up">
+
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+    <div>
+      <h1 class="text-3xl font-extrabold tracking-tight text-ink">Companies & Organisations</h1>
+      <p class="text-sm text-slate-500 mt-1">Aggregated overview of companies hiring across Zentra.</p>
+    </div>
+    {% if companies_pagination.total > 0 %}
+    <div class="flex items-center gap-2">
+      <span class="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+        {{ companies_pagination.total }} Total Companies
+      </span>
+    </div>
+    {% endif %}
+  </div>
+
+  <form method="GET" class="flex gap-3 bg-white p-4 rounded-2xl border border-slate-200/90 shadow-sm max-w-md">
+    <input type="text" name="q" value="{{ q }}" placeholder="Search company name…"
+           class="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-ink focus:ring-2 focus:ring-slate-100">
+    <button type="submit" class="bg-ink text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-800 transition-colors shadow-sm">Search</button>
+    {% if q %}<a href="{{ url_for('admin.companies') }}" class="border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">Clear</a>{% endif %}
+  </form>
+
+  {% if not companies_list %}
+  <div class="bg-white border border-slate-200/90 rounded-2xl p-12 text-center shadow-sm">
+    <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+      <i class="bi bi-building text-2xl"></i>
+    </div>
+    <h3 class="font-bold text-ink text-base">No companies found</h3>
+    <p class="text-xs text-slate-400 mt-1">Try adjusting your search criteria.</p>
+  </div>
+  {% endif %}
+
+  <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+    {% for company in companies_list %}
+    <a href="{{ url_for('admin.company_detail', company_name=company.name) }}"
+       class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm hover:border-slate-300 hover:shadow-md transition-all group block">
+      <div class="flex items-center gap-3.5 mb-5">
+        <span class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-lg shrink-0">
+          {{ company.name[:1]|upper }}
+        </span>
+        <div class="min-w-0 flex-1">
+          <h3 class="font-bold text-ink text-base truncate group-hover:text-indigo-600 transition-colors">{{ company.name }}</h3>
+          <p class="text-xs text-slate-400 mt-0.5">{{ company.recruiter_count }} recruiter account{{ 's' if company.recruiter_count != 1 else '' }}</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-3 gap-2.5 text-center">
+        <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+          <p class="text-xl font-extrabold text-ink">{{ company.job_count }}</p>
+          <p class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mt-0.5">Jobs</p>
+        </div>
+        <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+          <p class="text-xl font-extrabold text-ink">{{ company.app_count }}</p>
+          <p class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mt-0.5">Apps</p>
+        </div>
+        <div class="bg-emerald-50 rounded-xl p-2.5 border border-emerald-100">
+          <p class="text-xl font-extrabold text-emerald-700">{{ company.hire_count }}</p>
+          <p class="text-[10px] uppercase tracking-wider text-emerald-600 font-semibold mt-0.5">Hires</p>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- Pagination Bar -->
+  <div class="bg-white border border-slate-200/90 rounded-2xl shadow-sm overflow-hidden">
+    {{ pg.render_pagination(companies_pagination, 'admin.companies', 'companies') }}
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}Zentra — Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-6 lg:px-10 py-10 space-y-8 fade-up">
+
+  <!-- Header with Snapshot and Quick Controls -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-8 border-b border-slate-100">
+    <div>
+      <div class="flex items-center gap-3">
+        <h1 class="text-3xl font-extrabold tracking-tight text-ink">Platform Administration</h1>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          Live Overview
+        </span>
+      </div>
+      <p class="text-sm text-slate-500 mt-1">Welcome back, <span class="font-medium text-ink">{{ current_user.full_name }}</span>. Real-time platform health and operations.</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="{{ url_for('admin.users') }}" class="text-sm font-semibold border border-slate-200 px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-colors">
+        <i class="bi bi-people mr-1.5"></i>Manage Users
+      </a>
+      <a href="{{ url_for('admin.recruiters', status='pending') }}" class="bg-ink text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-slate-800 transition-colors shadow-sm inline-flex items-center gap-2">
+        <i class="bi bi-shield-check"></i>
+        <span>Pending Approvals</span>
+        {% if stats.pending_recruiters > 0 %}
+        <span class="bg-rose-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">{{ stats.pending_recruiters }}</span>
+        {% endif %}
+      </a>
+    </div>
+  </div>
+
+  <!-- Metric Overview Cards -->
+  <div class="grid grid-cols-2 lg:grid-cols-5 gap-5">
+    <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+      <div class="flex items-center justify-between">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Users</p>
+        <span class="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center"><i class="bi bi-people"></i></span>
+      </div>
+      <p class="text-3xl font-extrabold text-ink mt-3">{{ stats.total_users }}</p>
+      <p class="text-xs text-slate-500 mt-1">{{ stats.total_candidates }} candidates · {{ stats.total_recruiters }} recruiters</p>
+    </div>
+
+    <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+      <div class="flex items-center justify-between">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Companies</p>
+        <span class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><i class="bi bi-building"></i></span>
+      </div>
+      <p class="text-3xl font-extrabold text-ink mt-3">{{ stats.total_companies }}</p>
+      <div class="mt-1">
+        <a href="{{ url_for('admin.companies') }}" class="text-xs text-indigo-600 hover:underline font-semibold flex items-center gap-1">View all <i class="bi bi-chevron-right text-[10px]"></i></a>
+      </div>
+    </div>
+
+    <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+      <div class="flex items-center justify-between">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400">All Jobs</p>
+        <span class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center"><i class="bi bi-briefcase"></i></span>
+      </div>
+      <p class="text-3xl font-extrabold text-ink mt-3">{{ stats.total_jobs }}</p>
+      <div class="mt-1">
+        <a href="{{ url_for('admin.jobs') }}" class="text-xs text-indigo-600 hover:underline font-semibold flex items-center gap-1">Manage jobs <i class="bi bi-chevron-right text-[10px]"></i></a>
+      </div>
+    </div>
+
+    <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+      <div class="flex items-center justify-between">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Applications</p>
+        <span class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center"><i class="bi bi-send"></i></span>
+      </div>
+      <p class="text-3xl font-extrabold text-ink mt-3">{{ stats.total_applications }}</p>
+      <p class="text-xs text-slate-500 mt-1">{{ stats.total_hires }} hired · {{ stats.total_interviews }} in interview</p>
+    </div>
+
+    <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+      <div class="flex items-center justify-between">
+        <p class="text-xs font-bold uppercase tracking-wider text-rose-500">Pending Review</p>
+        <span class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center"><i class="bi bi-hourglass-split"></i></span>
+      </div>
+      <p class="text-3xl font-extrabold text-rose-600 mt-3">{{ stats.pending_recruiters }}</p>
+      <div class="mt-1">
+        <a href="{{ url_for('admin.recruiters', status='pending') }}" class="text-xs text-rose-600 hover:underline font-semibold flex items-center gap-1">Review now <i class="bi bi-chevron-right text-[10px]"></i></a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hiring Funnel & Analytics Row -->
+  <div class="grid lg:grid-cols-3 gap-6">
+
+    <!-- Hiring Funnel -->
+    <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm">
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h3 class="font-bold text-ink text-base">Platform Hiring Funnel</h3>
+          <p class="text-xs text-slate-500 mt-0.5">Overall candidate progression</p>
+        </div>
+        <a href="{{ url_for('admin.reports') }}" class="text-xs text-indigo-600 font-semibold hover:underline">Full Analytics →</a>
+      </div>
+
+      {% set total = stats.total_applications or 1 %}
+      {% set stages = [
+        ('Applied', stats.total_applications, 'bg-slate-300'),
+        ('Shortlisted', stats.total_shortlisted, 'bg-amber-500'),
+        ('Interview', stats.total_interviews, 'bg-indigo-600'),
+        ('Hired', stats.total_hires, 'bg-emerald-500'),
+      ] %}
+      <div class="space-y-4">
+        {% for label, count, color in stages %}
+        <div>
+          <div class="flex justify-between text-xs mb-1.5">
+            <span class="font-medium text-slate-600">{{ label }}</span>
+            <span class="font-bold text-ink">{{ count }} <span class="font-normal text-slate-400 text-[11px]">({{ ((count / total) * 100)|int }}%)</span></span>
+          </div>
+          <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+            {% set funnel_width = [(count / total * 100)|int, 100]|min %}
+            <div class="{{ color }} h-full rounded-full transition-all dynamic-bar" data-width="{{ funnel_width }}"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- 7-day Application Trend Sparkline -->
+    <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm">
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h3 class="font-bold text-ink text-base">7-Day Applications</h3>
+          <p class="text-xs text-slate-500 mt-0.5">Daily candidate submission volume</p>
+        </div>
+      </div>
+      {% set max_count = (seven_days | map(attribute='count') | max) or 1 %}
+      <div class="flex items-end gap-2.5 h-32 pt-4">
+        {% for d in seven_days %}
+        {% set bar_h = [(d.count / max_count * 90)|int, 6]|max %}
+        <div class="flex-1 flex flex-col items-center gap-1.5">
+          <div class="w-full bg-indigo-600 rounded-t hover:bg-indigo-700 transition-all dynamic-bar cursor-pointer"
+               data-height="{{ bar_h }}"
+               title="{{ d.day }}: {{ d.count }} applications"></div>
+          <span class="text-[10px] text-slate-400 font-medium">{{ d.day.split(' ')[1] }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Recent Admin Action Activity -->
+    <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h3 class="font-bold text-ink text-base">Audit Trail</h3>
+          <p class="text-xs text-slate-500 mt-0.5">Recent administrative operations</p>
+        </div>
+        <a href="{{ url_for('admin.audit') }}" class="text-xs text-indigo-600 font-semibold hover:underline">View All →</a>
+      </div>
+      {% if recent_audit %}
+      <div class="space-y-3">
+        {% for entry in recent_audit[:5] %}
+        <div class="flex items-start gap-3 text-xs">
+          <span class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 mt-0.5">
+            <i class="bi bi-shield-check"></i>
+          </span>
+          <div class="min-w-0 flex-1">
+            <p class="font-semibold text-ink truncate">{{ entry.action | replace('_', ' ') | title }}</p>
+            <p class="text-slate-500 truncate text-[11px]">{{ entry.detail or '—' }}</p>
+            <p class="text-slate-400 text-[10px] mt-0.5">{{ entry.created_at.strftime('%b %d, %H:%M') }}</p>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-sm text-slate-400 py-6 text-center">No audit actions recorded yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Recent Applications Table -->
+  <div class="bg-white border border-slate-200/90 rounded-2xl shadow-sm overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+      <div>
+        <h3 class="font-bold text-ink text-lg">Recent Applications Across Zentra</h3>
+        <p class="text-xs text-slate-500 mt-0.5">Live candidate submissions across all approved jobs</p>
+      </div>
+      <a href="{{ url_for('admin.applications') }}" class="text-sm text-indigo-600 font-semibold hover:underline flex items-center gap-1">
+        All Applications <i class="bi bi-arrow-right text-xs"></i>
+      </a>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs text-slate-500 font-semibold uppercase tracking-wider border-b border-slate-100">
+          <tr>
+            <th class="px-6 py-3.5 text-left">Candidate</th>
+            <th class="px-6 py-3.5 text-left">Applied Position</th>
+            <th class="px-6 py-3.5 text-left">Company</th>
+            <th class="px-6 py-3.5 text-left">ATS Match</th>
+            <th class="px-6 py-3.5 text-left">Status</th>
+            <th class="px-6 py-3.5 text-left">Date</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for app in recent_applications %}
+          <tr class="hover:bg-slate-50/60 transition-colors">
+            <td class="px-6 py-4">
+              <a href="{{ url_for('admin.user_detail', user_id=app.candidate_id) }}" class="font-semibold text-ink hover:text-indigo-600 transition-colors block">
+                {{ app.candidate.full_name }}
+              </a>
+              <span class="text-xs text-slate-400">{{ app.candidate.email }}</span>
+            </td>
+            <td class="px-6 py-4">
+              <a href="{{ url_for('admin.job_detail', job_id=app.job_id) }}" class="font-medium text-ink hover:text-indigo-600 transition-colors">
+                {{ app.job.title }}
+              </a>
+            </td>
+            <td class="px-6 py-4 text-slate-600 font-medium">{{ app.job.recruiter_profile.company_name }}</td>
+            <td class="px-6 py-4">
+              {% if app.match_score is not none %}
+              <span class="font-bold {{ 'text-emerald-600' if app.match_score >= 70 else ('text-amber-600' if app.match_score >= 40 else 'text-rose-600') }}">{{ app.match_score|int }}%</span>
+              {% else %}<span class="text-slate-300">—</span>{% endif %}
+            </td>
+            <td class="px-6 py-4">
+              <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold {{ 'bg-emerald-50 text-emerald-700 border border-emerald-200' if app.status == 'hired' else ('bg-indigo-50 text-indigo-700 border border-indigo-200' if app.status == 'interview' else ('bg-amber-50 text-amber-700 border border-amber-200' if app.status == 'shortlisted' else ('bg-rose-50 text-rose-700 border border-rose-200' if app.status == 'rejected' else 'bg-slate-100 text-slate-600 border border-slate-200'))) }}">
+                {{ app.status | replace('_', ' ') | title }}
+              </span>
+            </td>
+            <td class="px-6 py-4 text-slate-400 text-xs">{{ app.applied_at.strftime('%b %d, %Y') }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="px-6 py-10 text-center text-slate-400">No applications received yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('[data-width]').forEach(function(el) {
+    el.style.width = el.getAttribute('data-width') + '%';
+  });
+  document.querySelectorAll('[data-height]').forEach(function(el) {
+    el.style.height = el.getAttribute('data-height') + 'px';
+  });
+</script>
+{% endblock %}

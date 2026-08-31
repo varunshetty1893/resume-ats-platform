@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtualenv / environments
+venv/
+.venv/
+env/
+.env
+.env.*
+!.env.example
+
+# Flask / application
+dev.db
+*.db
+*.sqlite3
+instance/
+
+# Uploads (never commit user files)
+app/static/uploads/*
+!app/static/uploads/.gitkeep
+
+# Certificates and secrets
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
+
+# OS / IDE artefacts
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Migrations (keep the folder but not generated files if preferred)
+# migrations/versions/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+logs/
