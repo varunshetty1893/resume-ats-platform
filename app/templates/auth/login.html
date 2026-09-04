@@ -146,14 +146,23 @@
       loginTab.classList.add('text-slate-400'); loginTab.classList.remove('text-ink');
       signupForm.classList.remove('hidden'); loginForm.classList.add('hidden');
     }
+  }
+
   function fillDemo(email, pass) {
     setMode('login');
     const emailInput = document.getElementById('login-email');
     const passInput = document.getElementById('login-password');
-    if (emailInput) { emailInput.value = email; emailInput.focus(); }
-    if (passInput) { passInput.value = pass; }
+    if (emailInput) {
+      emailInput.value = email;
+      emailInput.focus();
+    }
+    if (passInput) {
+      passInput.value = pass;
+    }
   }
 
-  {% if signup_form.errors %} setMode('signup'); {% endif %}
+  {% if signup_form.errors %}
+  setMode('signup');
+  {% endif %}
 </script>
 {% endblock %}
