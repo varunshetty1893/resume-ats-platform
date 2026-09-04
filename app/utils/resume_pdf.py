@@ -6,6 +6,8 @@ with selectable ATS-friendly templates (Modern, Professional, Minimal, Executive
 
 import io
 import json
+import re
+import html
 from typing import Dict, List, Any, Optional
 
 from reportlab.lib.pagesizes import A4
@@ -139,15 +141,8 @@ def structured_resume_to_plain_text(data: Dict[str, Any]) -> str:
     return "\n\n".join(parts)
 
 
-def parse_resume_to_structured_dict(raw_text: str, default_name: str = "", default_role: str = "") -> Dict[str, Any]:
-    """Parse stored resume text back into structured dictionary."""
-    if raw_text and raw_text.strip().startswith('{"__structured__": true'):
-        try:
-            return json.loads(raw_text)
-        except Exception:
-            pass
-
-    # Default scaffold
+def _get_default_scaffold(default_name: str = "", default_role: str = "") -> Dict[str, Any]:
+    """Return an empty structured resume dictionary scaffold."""
     return {
         "__structured__": True,
         "template": "modern",
@@ -160,6 +155,7 @@ def parse_resume_to_structured_dict(raw_text: str, default_name: str = "", defau
             "linkedin": "",
             "github": "",
             "portfolio": "",
+            "links": [],
         },
         "summary": "",
         "experience": [],
@@ -176,6 +172,306 @@ def parse_resume_to_structured_dict(raw_text: str, default_name: str = "", defau
         "certifications": [],
         "achievements": [],
     }
+
+
+def parse_plain_text_to_structured(raw_text: str, default_name: str = "", default_role: str = "") -> Dict[str, Any]:
+    """Parse plain-text resume into structured dictionary for ReportLab ATS generation."""
+    lines = [line.strip() for line in (raw_text or "").splitlines()]
+    structured = _get_default_scaffold(default_name, default_role)
+
+    if not lines or not any(lines):
+        return structured
+
+    # Standard section heading patterns
+    section_patterns = {
+        "summary": re.compile(r"^(?:#*\s*)(?:.*SUMMARY|.*OBJECTIVE|PROFILE|ABOUT\s+ME)\s*[:\-]*$", re.I),
+        "skills": re.compile(r"^(?:#*\s*)(?:.*SKILLS|.*COMPETENCIES|TECHNOLOGIES|AREAS\s+OF\s+EXPERTISE)\s*[:\-]*$", re.I),
+        "experience": re.compile(r"^(?:#*\s*)(?:.*EXPERIENCE|.*EMPLOYMENT|WORK\s+HISTORY)\s*[:\-]*$", re.I),
+        "projects": re.compile(r"^(?:#*\s*)(?:.*PROJECTS|OPEN\s+SOURCE.*)\s*[:\-]*$", re.I),
+        "education": re.compile(r"^(?:#*\s*)(?:EDUCATION.*|ACADEMIC.*|QUALIFICATIONS.*)\s*[:\-]*$", re.I),
+        "certifications": re.compile(r"^(?:#*\s*)(?:CERTIFICATION.*|LICENSES.*|CERTIFICATES.*)\s*[:\-]*$", re.I),
+        "achievements": re.compile(r"^(?:#*\s*)(?:ACHIEVEMENT.*|AWARDS.*|HONORS.*|PUBLICATIONS.*)\s*[:\-]*$", re.I),
+    }
+
+    # 1. Identify section boundary positions
+    section_positions = []
+    for idx, line in enumerate(lines):
+        if not line:
+            continue
+        for sec_name, pattern in section_patterns.items():
+            if pattern.match(line):
+                section_positions.append((idx, sec_name, line))
+                break
+
+    # 2. Extract header / personal info (before the first section)
+    first_sec_idx = section_positions[0][0] if section_positions else len(lines)
+    header_lines = [l for l in lines[:first_sec_idx] if l]
+    header_blob = " | ".join(header_lines)
+
+    candidate_name = ""
+    title = default_role or ""
+
+    if header_lines:
+        first_line = header_lines[0]
+        # Avoid treating file extensions, URLs, or generic resume labels as candidate name
+        if not re.search(r"(\.pdf|\.docx|resume|curriculum\s+vitae|@)", first_line, re.I):
+            candidate_name = re.sub(r"[#*]", "", first_line).strip()
+
+    if not candidate_name:
+        clean_default = re.sub(r"(\.pdf|\.docx|_resume.*|\bpdf\b)", "", default_name, flags=re.I).replace("_", " ").strip()
+        candidate_name = clean_default or "Candidate"
+
+    if len(header_lines) > 1:
+        for hl in header_lines[1:]:
+            if not re.search(r"[@\+0-9]", hl) and len(hl) < 90 and not any(x in hl.lower() for x in ["linkedin", "github", "portfolio", "http", "www."]):
+                title = re.sub(r"[#*]", "", hl).strip()
+                break
+
+    email_match = re.search(r"[\w\.-]+@[\w\.-]+\.\w+", header_blob)
+    email = email_match.group(0) if email_match else ""
+
+    phone_match = re.search(r"(\+?\d{1,4}[-.\s]?)?\(?\d{2,5}\)?[-.\s]?\d{3,5}[-.\s]?\d{3,5}", header_blob)
+    phone = phone_match.group(0).strip() if phone_match else ""
+
+    linkedin_match = re.search(r"(?:https?:\/\/)?(?:www\.)?(linkedin\.com\/in\/[a-zA-Z0-9_\-\.\%]+)", header_blob, re.I)
+    linkedin = f"https://{linkedin_match.group(1)}" if linkedin_match else ""
+
+    github_match = re.search(r"(?:https?:\/\/)?(?:www\.)?(github\.com\/[a-zA-Z0-9_\-\.\%]+)", header_blob, re.I)
+    github = f"https://{github_match.group(1)}" if github_match else ""
+
+    portfolio_match = re.search(r"(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9_\-]+\.(?:dev|me|io|portfolio|site)(?:\/[a-zA-Z0-9_\-\.\%]*)?)", header_blob, re.I)
+    portfolio = f"https://{portfolio_match.group(1)}" if portfolio_match else ""
+
+    location = ""
+    for part in re.split(r"[\t\n|•]+", header_blob):
+        part = part.strip()
+        if not part or part in [candidate_name, title, email, phone]:
+            continue
+        if any(x in part.lower() for x in ["linkedin", "github", "http", "@", ".com", ".dev", ".io"]):
+            continue
+        if re.search(r"\d{3,}", part):
+            continue
+        if len(part) < 60 and any(c.isalpha() for c in part):
+            location = part
+            break
+
+    structured["personal"] = {
+        "full_name": candidate_name,
+        "title": title,
+        "email": email,
+        "phone": phone,
+        "location": location,
+        "linkedin": linkedin,
+        "github": github,
+        "portfolio": portfolio,
+        "links": [l for l in [linkedin, github, portfolio] if l],
+    }
+
+    date_regex = re.compile(
+        r"(\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)?\s*\d{4}\s*(?:[-–—to]+\s*(?:Present|\d{4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s*\d{4}))?\b)",
+        re.I,
+    )
+
+    # 3. Process each section block
+    for i, (start_idx, sec_name, heading_text) in enumerate(section_positions):
+        end_idx = section_positions[i + 1][0] if i + 1 < len(section_positions) else len(lines)
+        block_lines = [l for l in lines[start_idx + 1:end_idx] if l]
+        block_text = "\n".join(block_lines).strip()
+
+        if sec_name == "summary":
+            structured["summary"] = block_text
+
+        elif sec_name == "skills":
+            skills_dict = {}
+            flat_skills = []
+            for line in block_lines:
+                clean_l = line.strip(" •-*#")
+                cat_match = re.match(r"^([^:\n]{2,35}):\s*(.*)$", clean_l)
+                if cat_match:
+                    cat_name = cat_match.group(1).strip()
+                    items_str = cat_match.group(2).strip()
+                    items = [it.strip(" •-*") for it in re.split(r"[,•|/]+", items_str) if it.strip()]
+                    skills_dict[cat_name] = items
+                else:
+                    items = [it.strip(" •-*") for it in re.split(r"[,•|/]+", clean_l) if it.strip()]
+                    flat_skills.extend(items)
+
+            if skills_dict:
+                if flat_skills:
+                    skills_dict["Other Skills"] = flat_skills
+                structured["skills"] = skills_dict
+            elif flat_skills:
+                structured["skills"] = {"Technical Skills": flat_skills}
+            else:
+                structured["skills"] = block_text
+
+        elif sec_name == "experience":
+            experiences = []
+            current_exp = None
+
+            for line in block_lines:
+                is_bullet = bool(re.match(r"^[\s•\-\*\>]+|\s{2,}", line))
+                clean_line = re.sub(r"^[\s•\-\*\>]+", "", line).strip()
+
+                date_match = date_regex.search(clean_line)
+                is_pure_date = date_match and (
+                    len(clean_line) < 35 or
+                    re.match(r"^(?:[A-Za-z]+\s*\d{4}|\d{4})\s*[-–—to]+\s*(?:Present|[A-Za-z]+\s*\d{4}|\d{4})$", clean_line, re.I)
+                )
+
+                if current_exp and is_pure_date and not current_exp.get("start_date") and not current_exp.get("bullets"):
+                    date_parts = re.split(r"[-–—to]+", clean_line)
+                    current_exp["start_date"] = date_parts[0].strip() if len(date_parts) > 0 else ""
+                    current_exp["end_date"] = date_parts[1].strip() if len(date_parts) > 1 else ""
+                    current_exp["current"] = "present" in current_exp["end_date"].lower()
+                    continue
+
+                if not is_bullet and (date_match or "|" in line or "–" in line or "-" in line or current_exp is None):
+                    if current_exp:
+                        experiences.append(current_exp)
+
+                    parts = [p.strip() for p in re.split(r"[|•–—]+", clean_line) if p.strip()]
+                    exp_title = parts[0] if len(parts) > 0 else "Role"
+                    company = parts[1] if len(parts) > 1 else ""
+                    exp_loc = ""
+                    date_str = ""
+
+                    for p in parts[2:]:
+                        if re.search(r"\d{4}|present", p, re.I):
+                            date_str = p
+                        else:
+                            exp_loc = p
+
+                    start_date = ""
+                    end_date = ""
+                    is_current = False
+                    if date_str:
+                        date_parts = re.split(r"[-–—to]+", date_str)
+                        start_date = date_parts[0].strip() if len(date_parts) > 0 else ""
+                        end_date = date_parts[1].strip() if len(date_parts) > 1 else ""
+                        is_current = "present" in end_date.lower()
+
+                    current_exp = {
+                        "title": exp_title,
+                        "company": company,
+                        "location": exp_loc,
+                        "start_date": start_date,
+                        "end_date": end_date,
+                        "current": is_current,
+                        "bullets": [],
+                    }
+                else:
+                    if current_exp is not None:
+                        current_exp["bullets"].append(clean_line)
+
+            if current_exp:
+                experiences.append(current_exp)
+            structured["experience"] = experiences
+
+        elif sec_name == "projects":
+            projects = []
+            curr_proj = None
+            for line in block_lines:
+                is_bullet = bool(re.match(r"^[\s•\-\*\>]+|\s{2,}", line))
+                clean_line = re.sub(r"^[\s•\-\*\>]+", "", line).strip()
+
+                if not is_bullet and ("–" in line or "|" in line or "-" in line or ":" in line or curr_proj is None):
+                    if curr_proj:
+                        projects.append(curr_proj)
+                    parts = [p.strip() for p in re.split(r"[:|–—]+", clean_line, 1) if p.strip()]
+                    p_name = parts[0] if parts else "Project"
+                    desc_part = parts[1] if len(parts) > 1 else ""
+                    curr_proj = {
+                        "name": p_name,
+                        "role": "",
+                        "technologies": [],
+                        "link": "",
+                        "bullets": [desc_part] if desc_part else [],
+                    }
+                else:
+                    if curr_proj is not None:
+                        curr_proj["bullets"].append(clean_line)
+
+            if curr_proj:
+                projects.append(curr_proj)
+            structured["projects"] = projects
+
+        elif sec_name == "education":
+            edu_list = []
+            for line in block_lines:
+                clean_l = re.sub(r"^[\s•\-\*\>]+", "", line).strip()
+                parts = [p.strip() for p in re.split(r"[|–—]+", clean_l) if p.strip()]
+                degree_part = parts[0] if parts else clean_l
+                inst = parts[1] if len(parts) > 1 else ""
+                year = ""
+                for p in parts:
+                    yr_match = re.search(r"(\b\d{4}(?:\s*[-–—]\s*\d{4})?\b)", p)
+                    if yr_match:
+                        year = yr_match.group(0)
+                        break
+                edu_list.append({
+                    "degree": degree_part,
+                    "field": "",
+                    "institution": inst,
+                    "year": year,
+                    "gpa": "",
+                })
+            structured["education"] = edu_list
+
+        elif sec_name == "certifications":
+            cert_list = []
+            for line in block_lines:
+                clean_l = re.sub(r"^[\s•\-\*\>]+", "", line).strip()
+                if not clean_l:
+                    continue
+                items = re.split(r"(?:[•\n]|\s{3,})", clean_l)
+                for item in items:
+                    item = item.strip(" •-*")
+                    if not item:
+                        continue
+                    parts = [p.strip() for p in re.split(r"[–—\-]+", item) if p.strip()]
+                    c_name = parts[0]
+                    c_issuer = parts[1] if len(parts) > 1 else ""
+                    cert_list.append({
+                        "name": c_name,
+                        "issuer": c_issuer,
+                        "year": "",
+                        "url": "",
+                    })
+            structured["certifications"] = cert_list
+
+        elif sec_name == "achievements":
+            ach_list = []
+            for line in block_lines:
+                clean_line = re.sub(r"^[\s•\-\*\>]+", "", line).strip()
+                if clean_line:
+                    ach_list.append(clean_line)
+            structured["achievements"] = ach_list
+
+    # Fallback: if no sections were parsed at all, preserve all text in summary
+    if not section_positions and raw_text.strip():
+        structured["summary"] = raw_text.strip()
+
+    return structured
+
+
+def parse_resume_to_structured_dict(raw_text: str, default_name: str = "", default_role: str = "") -> Dict[str, Any]:
+    """Parse stored resume text back into structured dictionary.
+    
+    Handles both structured builder JSON payloads and uploaded / plain text resumes.
+    """
+    if not raw_text or not raw_text.strip():
+        return _get_default_scaffold(default_name, default_role)
+
+    if raw_text.strip().startswith('{"__structured__": true'):
+        try:
+            data = json.loads(raw_text)
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            pass
+
+    return parse_plain_text_to_structured(raw_text, default_name, default_role)
 
 
 def build_structured_resume_pdf(resume_data: Dict[str, Any], template: str = "modern") -> io.BytesIO:
