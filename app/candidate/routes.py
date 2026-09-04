@@ -101,6 +101,11 @@ def resume_ai():
         for j in active_jobs
     ]
 
+    primary_resume = (
+        Resume.get_primary(current_user.id)
+        if (current_user.is_authenticated and current_user.is_candidate)
+        else None
+    )
     result = None
 
     if form.validate_on_submit():
@@ -213,7 +218,7 @@ def resume_ai():
         history = Resume.query.filter_by(candidate_id=current_user.id).filter(Resume.last_ats_score.isnot(None)).order_by(Resume.created_at.desc()).limit(6).all()
         if len(history) > 1:
             improvement = round(history[0].last_ats_score - history[-1].last_ats_score)
-    return render_template("resume_ai.html", form=form, result=result, ats_history=history, ats_improvement=improvement, active_jobs=active_jobs)
+    return render_template("resume_ai.html", form=form, result=result, ats_history=history, ats_improvement=improvement, active_jobs=active_jobs, primary_resume=primary_resume)
 
 
 @candidate_bp.route("/resume-builder", methods=["GET", "POST"])

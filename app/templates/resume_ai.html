@@ -57,6 +57,18 @@
         </label>
         {% for error in form.resume_file.errors %}<p class="text-xs text-rose-500 mt-1">{{ error }}</p>{% endfor %}
 
+        {% if primary_resume and primary_resume.raw_text %}
+        <div class="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl flex items-center justify-between gap-2">
+          <div class="min-w-0">
+            <span class="text-[11px] font-bold text-indigo-900 block truncate">Saved Resume on Profile:</span>
+            <span class="text-xs text-slate-600 block truncate">{{ primary_resume.name or 'Primary Resume' }}</span>
+          </div>
+          <button type="button" onclick="loadSavedPrimaryResume()" class="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-colors shadow-2xs cursor-pointer">
+            <i class="bi bi-file-earmark-text mr-1"></i>Load Saved Resume
+          </button>
+        </div>
+        {% endif %}
+
         <div class="relative flex py-1 items-center">
           <div class="flex-grow border-t border-slate-100"></div>
           <span class="shrink-0 mx-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">or paste resume text</span>
@@ -632,6 +644,17 @@
       span.textContent = s;
       skillsWrap.appendChild(span);
     });
+  }
+
+  function loadSavedPrimaryResume() {
+    {% if primary_resume and primary_resume.raw_text %}
+    const text = {{ primary_resume.raw_text|tojson }};
+    const input = document.getElementById('resume-text-input');
+    if (input) {
+      input.value = text;
+      input.focus();
+    }
+    {% endif %}
   }
 </script>
 {% endblock %}
