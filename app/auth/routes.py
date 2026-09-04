@@ -57,6 +57,14 @@ def login():
     if current_user.is_authenticated:
         return _redirect_for_role(current_user)
 
+    # Auto-seed demo accounts (Microsoft Recruiter, Jobs, Alex Chen, Admin) if missing in database
+    try:
+        if not User.query.filter_by(email="recruiter@microsoft.com").first():
+            from seed_microsoft import seed_microsoft
+            seed_microsoft()
+    except Exception as e:
+        current_app.logger.warning(f"Auto demo-seed check: {e}")
+
     login_form = LoginForm(prefix="login")
     signup_form = SignupForm(prefix="signup")
 

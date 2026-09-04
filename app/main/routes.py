@@ -338,3 +338,15 @@ def support_attachment(filename):
 
     support_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], "support")
     return send_from_directory(support_dir, safe_name)
+
+
+@main_bp.route("/seed-demo", methods=["GET", "POST"])
+def seed_demo():
+    """Web-accessible endpoint to seed Microsoft recruiter, jobs, and candidate on Vercel/cloud database."""
+    try:
+        from seed_microsoft import seed_microsoft
+        seed_microsoft()
+        flash("Demo data (Microsoft recruiter, 12 jobs, Candidate Alex Chen, Admin) successfully initialized in database!", "success")
+    except Exception as e:
+        flash(f"Error seeding demo data: {e}", "error")
+    return redirect(url_for("auth.login"))

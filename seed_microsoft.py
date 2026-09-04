@@ -22,15 +22,38 @@ from app.models.application import Application
 from app.models.application_event import ApplicationEvent
 from app.models.career_entry import CareerEntry
 
-app = create_app()
-
 def seed_microsoft():
-    with app.app_context():
-        db.create_all()
+    from flask import has_app_context
+    if has_app_context():
+        _do_seed()
+    else:
+        app = create_app()
+        with app.app_context():
+            _do_seed()
 
-        print("=" * 65)
-        print("  ZENTRA SEEDER — MICROSOFT COMPANY, JOBS & REALISTIC CANDIDATE")
-        print("=" * 65)
+def _do_seed():
+    db.create_all()
+
+    print("=" * 65)
+    print("  ZENTRA SEEDER — MICROSOFT COMPANY, JOBS & REALISTIC CANDIDATE")
+    print("=" * 65)
+
+    # -------------------------------------------------------------
+    # 0. ADMIN ACCOUNT
+    # -------------------------------------------------------------
+    admin_email = "admin@zentra.example.com"
+    admin = User.query.filter_by(email=admin_email).first()
+    if not admin:
+        admin = User(
+            full_name="Platform Admin",
+            email=admin_email,
+            role=User.ROLE_ADMIN,
+            is_active_account=True,
+        )
+        admin.set_password("Admin@123")
+        db.session.add(admin)
+        db.session.flush()
+        print(f"[+] Created Admin User: {admin_email}")
 
         # -------------------------------------------------------------
         # 1. RECRUITER & COMPANY: Microsoft Corporation
