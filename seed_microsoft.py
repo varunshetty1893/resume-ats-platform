@@ -21,6 +21,7 @@ from app.models.resume import Resume
 from app.models.application import Application
 from app.models.application_event import ApplicationEvent
 from app.models.career_entry import CareerEntry
+from app.ml.ats_scorer import score_resume_for_job
 
 def seed_microsoft():
     from flask import has_app_context
@@ -734,11 +735,14 @@ OPEN SOURCE & NOTABLE PROJECTS
 
     # Apply to 1st Microsoft Job: Principal Cloud Solution Architect
     job1 = created_jobs[0]
+    score1 = score_resume_for_job(resume_raw_text, job1)["score"]
+    resume.last_ats_score = float(score1)
+
     app1 = Application(
         job_id=job1.id,
         candidate_id=cand_user.id,
         resume_id=resume.id,
-        match_score=95.2,
+        match_score=float(score1),
         cover_note=(
             "Dear Microsoft Hiring Team,\n\n"
             "I am thrilled to apply for the Principal Cloud Solution Architect role. Having spent 6+ years scaling distributed "
@@ -746,18 +750,19 @@ OPEN SOURCE & NOTABLE PROJECTS
             "certification, I am deeply passionate about driving architectural excellence for Azure Core customers.\n\n"
             "I look forward to discussing how my experience with high-throughput cloud infrastructure aligns with Microsoft's mission."
         ),
-        status="interview",
+        status="applied",
         applied_at=utcnow() - timedelta(days=10),
     )
     db.session.add(app1)
 
     # Apply to 2nd Microsoft Job: SRE Lead - Azure Global Network
     job2 = created_jobs[3]
+    score2 = score_resume_for_job(resume_raw_text, job2)["score"]
     app2 = Application(
         job_id=job2.id,
         candidate_id=cand_user.id,
         resume_id=resume.id,
-        match_score=91.8,
+        match_score=float(score2),
         cover_note=(
             "Hello,\n\n"
             "I am applying for the Site Reliability Engineering Lead position. My experience building automated self-healing "
@@ -765,13 +770,13 @@ OPEN SOURCE & NOTABLE PROJECTS
             "goals of Azure's Global Network.\n\n"
             "Best regards,\nAlex Chen"
         ),
-        status="shortlisted",
+        status="applied",
         applied_at=utcnow() - timedelta(days=7),
     )
     db.session.add(app2)
 
     db.session.commit()
-    print(f"[+] Submitted 2 realistic applications to Microsoft jobs (Statuses: 'interview', 'shortlisted')")
+    print(f"[+] Submitted 2 realistic applications to Microsoft jobs (Live ATS scores: {score1}%, {score2}%, Status: 'applied')")
 
     print("\n" + "=" * 65)
     print("  SEEDING SUCCESSFUL! LOGIN CREDENTIALS BELOW:")

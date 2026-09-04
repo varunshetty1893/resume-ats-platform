@@ -515,6 +515,8 @@ def applicants(job_id):
         .order_by(Application.match_score.desc())
         .all()
     )
+    if apps:
+        refresh_match_scores(apps)
 
     # Paginate BEFORE running AI evidence extraction — that extraction is
     # per-candidate NLP work, so once a job has hundreds of applicants we
@@ -875,6 +877,14 @@ def candidates():
 
     candidates_list = candidates_query.all()
 
+    # Re-sync match scores to ensure candidate cards always reflect true live ATS suitability
+    if job_ids and candidates_list:
+        all_cand_apps = []
+        for cand in candidates_list:
+            all_cand_apps.extend([a for a in cand.applications if a.job_id in job_ids])
+        if all_cand_apps:
+            refresh_match_scores(all_cand_apps)
+
     candidate_records = []
     for cand in candidates_list:
         cand_apps = [a for a in cand.applications if a.job_id in job_ids] if job_ids else []
@@ -937,6 +947,10 @@ def candidate_intelligence(candidate_id):
         Application.candidate_id == candidate.id,
         Application.job_id.in_(job_ids)
     ).order_by(Application.applied_at.desc()).all() if job_ids else []
+
+    # Keep all application scores synchronized with canonical ATS scoring engine
+    if applications:
+        refresh_match_scores(applications)
 
     # Privacy Enforcement: deny access if candidate is not discoverable and has no applications to recruiter's jobs
     if not candidate.recruiter_discoverable and not applications:
