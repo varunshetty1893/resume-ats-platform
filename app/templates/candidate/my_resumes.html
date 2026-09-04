@@ -10,11 +10,14 @@
         <i class="bi bi-folder2-open"></i> Resume Management
       </div>
       <h1 class="text-3xl font-extrabold tracking-tight text-ink">My Resumes</h1>
-      <p class="text-slate-500 text-sm mt-1">Manage, duplicate, analyze, and customize multiple targeted resume versions.</p>
+      <p class="text-slate-500 text-sm mt-1">Upload, preview, customize, and manage multiple targeted resume versions.</p>
     </div>
     <div class="flex items-center gap-3">
+      <button type="button" onclick="openUploadModal()" class="bg-white border border-slate-200 hover:border-indigo-300 text-slate-700 hover:text-indigo-600 text-sm font-semibold px-4 py-2.5 rounded-xl shadow-2xs hover:shadow-xs transition-all inline-flex items-center gap-2 cursor-pointer">
+        <i class="bi bi-cloud-arrow-up text-indigo-600"></i> Upload Resume
+      </button>
       <a href="{{ url_for('candidate.resume_builder') }}" class="bg-ink hover:bg-slate-800 text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-xs hover:shadow transition-all inline-flex items-center gap-2">
-        <i class="bi bi-plus-lg"></i> Create New Resume
+        <i class="bi bi-plus-lg"></i> Create with Builder
       </a>
     </div>
   </div>
@@ -25,18 +28,18 @@
     <div class="bg-white border {% if r.is_primary %}border-indigo-400 ring-2 ring-indigo-100 shadow-sm{% else %}border-slate-200 hover:border-indigo-300{% endif %} rounded-2xl p-5 shadow-xs hover:shadow transition-all flex flex-col justify-between group relative">
       <div>
         <div class="flex items-start justify-between gap-2 mb-3">
-          <div>
+          <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
-              <h2 class="font-extrabold text-base text-ink group-hover:text-indigo-600 transition-colors line-clamp-1">
+              <h2 class="font-extrabold text-base text-ink group-hover:text-indigo-600 transition-colors line-clamp-1" title="{{ r.name or 'Untitled Resume' }}">
                 {{ r.name or 'Untitled Resume' }}
               </h2>
               {% if r.is_primary %}
-              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
                 <i class="bi bi-star-fill text-amber-500"></i> Primary
               </span>
               {% endif %}
             </div>
-            <p class="text-xs font-semibold text-slate-500 mt-0.5">{{ r.target_role or 'General Role' }}</p>
+            <p class="text-xs font-semibold text-slate-500 mt-0.5 truncate">{{ r.target_role or 'General Role' }}</p>
           </div>
           {% if r.last_ats_score is not none %}
           <div class="shrink-0 text-right">
@@ -66,8 +69,12 @@
       </div>
 
       <!-- Actions -->
-      <div class="border-t border-slate-100 pt-4 mt-2 flex items-center justify-between gap-2">
-        <a href="{{ url_for('candidate.resume_builder', resume_id=r.id) }}" class="flex-1 text-center bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs py-2 px-3 rounded-lg transition-colors inline-flex items-center justify-center gap-1.5">
+      <div class="border-t border-slate-100 pt-4 mt-2 flex items-center justify-between gap-1.5">
+        <button type="button" onclick="openResumePreview({{ r.id }})" class="flex-1 text-center bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs py-2 px-2.5 rounded-lg transition-colors inline-flex items-center justify-center gap-1 cursor-pointer" title="Preview Resume Content">
+          <i class="bi bi-eye"></i> View
+        </button>
+
+        <a href="{{ url_for('candidate.resume_builder', resume_id=r.id) }}" class="flex-1 text-center bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs py-2 px-2.5 rounded-lg transition-colors inline-flex items-center justify-center gap-1" title="Edit in Builder">
           <i class="bi bi-pencil-square"></i> Edit
         </a>
 
@@ -111,17 +118,374 @@
     </div>
     <h3 class="text-lg font-bold text-ink">No saved resumes yet</h3>
     <p class="text-xs sm:text-sm text-slate-500 mt-1 max-w-md mx-auto">
-      Create your first structured resume using our ATS-optimized builder or test your existing resume with Resume AI.
+      Upload your existing PDF or Word resume, or create a brand new structured resume using our ATS-optimized builder.
     </p>
     <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
-      <a href="{{ url_for('candidate.resume_builder') }}" class="bg-ink hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold px-5 py-2.5 rounded-xl shadow-xs transition-all inline-flex items-center gap-2">
-        <i class="bi bi-plus-lg"></i> Build with AI Builder
-      </a>
-      <a href="{{ url_for('candidate.resume_ai') }}" class="border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl transition-all inline-flex items-center gap-2">
-        <i class="bi bi-cloud-arrow-up"></i> Upload to Checker
+      <button type="button" onclick="openUploadModal()" class="bg-ink hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold px-5 py-2.5 rounded-xl shadow-xs transition-all inline-flex items-center gap-2 cursor-pointer">
+        <i class="bi bi-cloud-arrow-up"></i> Upload Resume (.pdf, .docx)
+      </button>
+      <a href="{{ url_for('candidate.resume_builder') }}" class="border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl transition-all inline-flex items-center gap-2">
+        <i class="bi bi-pencil-square"></i> Open AI Resume Builder
       </a>
     </div>
   </div>
   {% endif %}
 </section>
+
+<!-- ======================== MODAL: UPLOAD RESUME ======================== -->
+<div id="upload-resume-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+  <div class="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 sm:p-7 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+    <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-base">
+          <i class="bi bi-cloud-arrow-up-fill"></i>
+        </div>
+        <div>
+          <h2 class="font-extrabold text-lg text-ink">Upload Resume</h2>
+          <p class="text-xs text-slate-500">Supported formats: PDF, DOCX (Max 5MB)</p>
+        </div>
+      </div>
+      <button type="button" onclick="closeUploadModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+        <i class="bi bi-x-lg text-sm"></i>
+      </button>
+    </div>
+
+    <form method="POST" action="{{ url_for('candidate.upload_resume') }}" enctype="multipart/form-data" class="mt-5 space-y-4">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
+
+      <!-- File Drop Area -->
+      <div class="border-2 border-dashed border-indigo-200 hover:border-indigo-400 bg-indigo-50/30 rounded-xl p-6 text-center cursor-pointer transition-colors relative" id="drop-zone" onclick="document.getElementById('upload-file-input').click()">
+        <input type="file" id="upload-file-input" name="resume_file" accept=".pdf,.docx" required class="hidden" onchange="handleFileSelected(this)">
+        <div class="w-12 h-12 rounded-2xl bg-white text-indigo-600 shadow-2xs border border-indigo-100 flex items-center justify-center mx-auto mb-2 text-xl">
+          <i class="bi bi-file-earmark-arrow-up" id="upload-icon"></i>
+        </div>
+        <p class="font-bold text-sm text-ink" id="upload-filename-label">Click to select resume file</p>
+        <p class="text-xs text-slate-500 mt-0.5">PDF or Word (.docx)</p>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-700 mb-1">Resume Name (Optional)</label>
+        <input type="text" name="resume_name" placeholder="e.g. Senior Software Engineer 2026" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-all">
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-700 mb-1">Target Role (Optional)</label>
+        <input type="text" name="target_role" placeholder="e.g. Cloud Solutions Architect" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-all">
+      </div>
+
+      <label class="flex items-center gap-2.5 text-xs text-slate-700 pt-1 cursor-pointer select-none">
+        <input type="checkbox" name="is_primary" value="1" class="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+        <span>Set as primary resume for applications</span>
+      </label>
+
+      <div class="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+        <button type="button" onclick="closeUploadModal()" class="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+          Cancel
+        </button>
+        <button type="submit" class="bg-ink hover:bg-slate-800 text-white text-xs font-semibold px-6 py-2.5 rounded-xl shadow-xs transition-all inline-flex items-center gap-1.5 cursor-pointer">
+          <i class="bi bi-cloud-arrow-up"></i> Upload &amp; Save
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ======================== MODAL: RESUME PREVIEW ======================== -->
+<div id="preview-resume-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
+  <div class="bg-white border border-slate-200 rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <!-- Modal Header -->
+    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-4 bg-slate-50/70">
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2">
+          <h2 id="modal-resume-name" class="font-extrabold text-lg text-ink truncate">Resume Preview</h2>
+          <span id="modal-primary-badge" class="hidden inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+            <i class="bi bi-star-fill text-amber-500"></i> Primary
+          </span>
+        </div>
+        <p id="modal-resume-role" class="text-xs text-slate-500 font-semibold mt-0.5 truncate">General Role</p>
+      </div>
+
+      <div class="flex items-center gap-2 shrink-0">
+        <a id="modal-download-btn" href="#" class="bg-white border border-slate-200 hover:border-indigo-300 text-slate-700 hover:text-indigo-600 text-xs font-semibold px-3.5 py-2 rounded-xl transition-all inline-flex items-center gap-1.5 shadow-2xs">
+          <i class="bi bi-download"></i> PDF
+        </a>
+        <a id="modal-edit-btn" href="#" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all inline-flex items-center gap-1.5 shadow-xs">
+          <i class="bi bi-pencil-square"></i> Edit
+        </a>
+        <button type="button" onclick="closeResumePreview()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-200 transition-colors cursor-pointer">
+          <i class="bi bi-x-lg text-sm"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Modal View Toggle (Formatted vs Plain text) -->
+    <div class="px-6 pt-3 pb-2 border-b border-slate-100 flex items-center justify-between gap-2 bg-white">
+      <div class="flex items-center gap-2">
+        <button type="button" id="tab-btn-structured" onclick="switchPreviewTab('structured')" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 transition-colors">
+          <i class="bi bi-layout-text-window-reverse mr-1"></i> Formatted Profile View
+        </button>
+        <button type="button" id="tab-btn-raw" onclick="switchPreviewTab('raw')" class="text-xs font-bold px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition-colors">
+          <i class="bi bi-card-text mr-1"></i> Plain Text View
+        </button>
+      </div>
+      <div id="modal-score-badge" class="hidden text-xs font-bold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+        <i class="bi bi-cpu mr-1"></i> ATS: <span id="modal-score-val">0</span>%
+      </div>
+    </div>
+
+    <!-- Modal Body (Scrollable) -->
+    <div class="p-6 sm:p-8 overflow-y-auto flex-1 space-y-6 bg-white" id="modal-content-area">
+      <!-- Loading placeholder -->
+      <div id="modal-loading-spinner" class="py-16 text-center">
+        <div class="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-3"></div>
+        <p class="text-xs font-semibold text-slate-500">Loading resume preview...</p>
+      </div>
+
+      <!-- Structured Container -->
+      <div id="modal-structured-container" class="hidden space-y-6">
+        <!-- Contact & Summary Card -->
+        <div class="border-b border-slate-100 pb-5">
+          <h1 id="view-candidate-name" class="text-2xl font-extrabold text-ink">Candidate Name</h1>
+          <p id="view-candidate-headline" class="text-sm font-semibold text-indigo-600 mt-0.5">Professional Role</p>
+          <div id="view-candidate-contacts" class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 mt-2.5"></div>
+          <div id="view-candidate-summary-wrapper" class="hidden mt-4 pt-3 border-t border-slate-100">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Professional Summary</h2>
+            <p id="view-candidate-summary" class="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line"></p>
+          </div>
+        </div>
+
+        <!-- Experience Section -->
+        <div id="view-experience-section" class="hidden space-y-3">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Work Experience</h2>
+          <div id="view-experience-list" class="space-y-4"></div>
+        </div>
+
+        <!-- Education Section -->
+        <div id="view-education-section" class="hidden space-y-3">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Education</h2>
+          <div id="view-education-list" class="space-y-3"></div>
+        </div>
+
+        <!-- Skills Section -->
+        <div id="view-skills-section" class="hidden space-y-3">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Technical Skills</h2>
+          <div id="view-skills-list" class="flex flex-wrap gap-1.5"></div>
+        </div>
+
+        <!-- Projects Section -->
+        <div id="view-projects-section" class="hidden space-y-3">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Featured Projects</h2>
+          <div id="view-projects-list" class="space-y-3"></div>
+        </div>
+      </div>
+
+      <!-- Raw Text Container -->
+      <div id="modal-raw-container" class="hidden">
+        <pre id="view-raw-text" class="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-xs text-slate-700 font-mono whitespace-pre-wrap leading-relaxed overflow-x-auto"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function openUploadModal() {
+  document.getElementById('upload-resume-modal').classList.remove('hidden');
+}
+
+function closeUploadModal() {
+  document.getElementById('upload-resume-modal').classList.add('hidden');
+}
+
+function handleFileSelected(input) {
+  if (input.files && input.files[0]) {
+    const file = input.files[0];
+    document.getElementById('upload-filename-label').textContent = file.name;
+    document.getElementById('upload-icon').className = 'bi bi-check2-circle text-emerald-600';
+  }
+}
+
+async function openResumePreview(resumeId) {
+  const modal = document.getElementById('preview-resume-modal');
+  const spinner = document.getElementById('modal-loading-spinner');
+  const structuredContainer = document.getElementById('modal-structured-container');
+  const rawContainer = document.getElementById('modal-raw-container');
+
+  modal.classList.remove('hidden');
+  spinner.classList.remove('hidden');
+  structuredContainer.classList.add('hidden');
+  rawContainer.classList.add('hidden');
+  switchPreviewTab('structured');
+
+  try {
+    const res = await fetch(`/candidate/api/resumes/${resumeId}/preview`);
+    if (!res.ok) throw new Error("Could not load resume preview");
+    const json = await res.json();
+    const resume = json.resume;
+
+    // Header info
+    document.getElementById('modal-resume-name').textContent = resume.name;
+    document.getElementById('modal-resume-role').textContent = resume.target_role;
+    document.getElementById('modal-download-btn').href = resume.pdf_url;
+    document.getElementById('modal-edit-btn').href = resume.edit_url;
+
+    if (resume.is_primary) {
+      document.getElementById('modal-primary-badge').classList.remove('hidden');
+    } else {
+      document.getElementById('modal-primary-badge').classList.add('hidden');
+    }
+
+    if (resume.last_ats_score !== null) {
+      document.getElementById('modal-score-badge').classList.remove('hidden');
+      document.getElementById('modal-score-val').textContent = resume.last_ats_score;
+    } else {
+      document.getElementById('modal-score-badge').classList.add('hidden');
+    }
+
+    // Raw text
+    document.getElementById('view-raw-text').textContent = resume.raw_text;
+
+    // Structured View
+    const s = resume.structured || {};
+    const personal = s.personal || {};
+    document.getElementById('view-candidate-name').textContent = personal.full_name || resume.name || "Candidate";
+    document.getElementById('view-candidate-headline').textContent = personal.headline || resume.target_role || "";
+
+    const contactsEl = document.getElementById('view-candidate-contacts');
+    contactsEl.innerHTML = '';
+    const contacts = [personal.email, personal.phone, personal.location, personal.linkedin, personal.github].filter(Boolean);
+    contacts.forEach(c => {
+      const span = document.createElement('span');
+      span.textContent = c;
+      contactsEl.appendChild(span);
+    });
+
+    if (s.summary && s.summary.trim()) {
+      document.getElementById('view-candidate-summary-wrapper').classList.remove('hidden');
+      document.getElementById('view-candidate-summary').textContent = s.summary;
+    } else {
+      document.getElementById('view-candidate-summary-wrapper').classList.add('hidden');
+    }
+
+    // Experience
+    const expSec = document.getElementById('view-experience-section');
+    const expList = document.getElementById('view-experience-list');
+    expList.innerHTML = '';
+    if (s.experience && s.experience.length > 0) {
+      expSec.classList.remove('hidden');
+      s.experience.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'border-l-2 border-indigo-200 pl-3 py-1';
+        let bulletsHtml = '';
+        if (item.bullets && item.bullets.length > 0) {
+          bulletsHtml = `<ul class="list-disc list-inside text-xs text-slate-600 mt-1.5 space-y-0.5">${item.bullets.map(b => `<li>${b}</li>`).join('')}</ul>`;
+        }
+        div.innerHTML = `
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-bold text-ink">${item.title || 'Role'}</span>
+            <span class="text-slate-400 font-medium">${item.dates || ''}</span>
+          </div>
+          <div class="text-xs font-semibold text-slate-500">${item.company || ''}${item.location ? ' · ' + item.location : ''}</div>
+          ${bulletsHtml}
+        `;
+        expList.appendChild(div);
+      });
+    } else {
+      expSec.classList.add('hidden');
+    }
+
+    // Education
+    const eduSec = document.getElementById('view-education-section');
+    const eduList = document.getElementById('view-education-list');
+    eduList.innerHTML = '';
+    if (s.education && s.education.length > 0) {
+      eduSec.classList.remove('hidden');
+      s.education.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'text-xs';
+        div.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-ink">${item.degree || item.school || 'Education'}</span>
+            <span class="text-slate-400 font-medium">${item.dates || ''}</span>
+          </div>
+          <div class="text-slate-500">${item.school || ''}</div>
+        `;
+        eduList.appendChild(div);
+      });
+    } else {
+      eduSec.classList.add('hidden');
+    }
+
+    // Skills
+    const skillSec = document.getElementById('view-skills-section');
+    const skillList = document.getElementById('view-skills-list');
+    skillList.innerHTML = '';
+    if (s.skills && s.skills.length > 0) {
+      skillSec.classList.remove('hidden');
+      s.skills.forEach(skill => {
+        const chip = document.createElement('span');
+        chip.className = 'px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold';
+        chip.textContent = skill;
+        skillList.appendChild(chip);
+      });
+    } else {
+      skillSec.classList.add('hidden');
+    }
+
+    // Projects
+    const projSec = document.getElementById('view-projects-section');
+    const projList = document.getElementById('view-projects-list');
+    projList.innerHTML = '';
+    if (s.projects && s.projects.length > 0) {
+      projSec.classList.remove('hidden');
+      s.projects.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'text-xs';
+        div.innerHTML = `
+          <div class="font-bold text-ink">${p.name || 'Project'}</div>
+          <div class="text-slate-600 mt-0.5">${p.description || ''}</div>
+        `;
+        projList.appendChild(div);
+      });
+    } else {
+      projSec.classList.add('hidden');
+    }
+
+    spinner.classList.add('hidden');
+    structuredContainer.classList.remove('hidden');
+  } catch (err) {
+    spinner.innerHTML = `<p class="text-xs text-rose-500 font-semibold">Failed to load resume: ${err.message}</p>`;
+  }
+}
+
+function closeResumePreview() {
+  document.getElementById('preview-resume-modal').classList.add('hidden');
+}
+
+function switchPreviewTab(tab) {
+  const structuredContainer = document.getElementById('modal-structured-container');
+  const rawContainer = document.getElementById('modal-raw-container');
+  const btnStructured = document.getElementById('tab-btn-structured');
+  const btnRaw = document.getElementById('tab-btn-raw');
+
+  if (tab === 'structured') {
+    structuredContainer.classList.remove('hidden');
+    rawContainer.classList.add('hidden');
+    btnStructured.className = 'text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 transition-colors';
+    btnRaw.className = 'text-xs font-bold px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition-colors';
+  } else {
+    structuredContainer.classList.add('hidden');
+    rawContainer.classList.remove('hidden');
+    btnRaw.className = 'text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 transition-colors';
+    btnStructured.className = 'text-xs font-bold px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition-colors';
+  }
+}
+
+// Close on backdrop click or ESC
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeUploadModal();
+    closeResumePreview();
+  }
+});
+</script>
 {% endblock %}

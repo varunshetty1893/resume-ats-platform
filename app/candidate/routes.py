@@ -203,31 +203,71 @@ def resume_ai():
                 .order_by(Resume.created_at.desc())
                 .first()
             )
-            # Becomes primary only if the candidate has no resume already
-            # flagged as primary — not just "is this their first resume
-            # ever" — so an old row left without a primary flag (e.g. from
-            # data predating this logic) self-heals instead of leaving the
-            # candidate with zero primaries.
-            has_primary = Resume.query.filter_by(candidate_id=current_user.id, is_primary=True).first() is not None
-            resume = Resume(
-                candidate_id=current_user.id,
-                source="upload" if stored_filename else "paste",
-                original_filename=original_filename,
-                stored_filename=stored_filename,
-                raw_text=resume_text,
-                name=form.resume_name.data.strip() if form.resume_name.data else None,
-                target_role=form.target_role.data.strip() if form.target_role.data else None,
-                last_ats_score=result["score"],
-                last_matched_keywords=", ".join(result["matched_keywords"]),
-                last_missing_keywords=", ".join(result["missing_keywords"]),
-                is_primary=not has_primary,
-            )
-            db.session.add(resume)
+            candidate_resumes = Resume.query.filter_by(candidate_id=current_user.id).all()
+            matched_resume = None
+            clean_test_text = resume_text.strip()
+            for r in candidate_resumes:
+                r_text = (r.raw_text or "").strip()
+                if r_text and (
+                    r_text == clean_test_text
+                    or (len(clean_test_text) > 80 and clean_test_text in r_text)
+                    or (len(r_text) > 80 and r_text in clean_test_text)
+                ):
+                    matched_resume = r
+                    break
+
+            if matched_resume:
+                # Update existing saved resume with fresh ATS metrics
+                matched_resume.last_ats_score = result["score"]
+                matched_resume.last_matched_keywords = ", ".join(result["matched_keywords"])
+                matched_resume.last_missing_keywords = ", ".join(result["missing_keywords"])
+            elif not candidate_resumes:
+                # Candidate has zero resumes — onboard this as their initial primary resume
+                new_name = (form.resume_name.data or "").strip() or (original_filename or "Primary Resume")
+                resume = Resume(
+                    candidate_id=current_user.id,
+                    source="upload" if stored_filename else "paste",
+                    original_filename=original_filename,
+                    stored_filename=stored_filename,
+                    raw_text=resume_text,
+                    name=new_name,
+                    target_role=form.target_role.data.strip() if form.target_role.data else None,
+                    last_ats_score=result["score"],
+                    last_matched_keywords=", ".join(result["matched_keywords"]),
+                    last_missing_keywords=", ".join(result["missing_keywords"]),
+                    is_primary=True,
+                )
+                db.session.add(resume)
+            elif form.resume_name.data and form.resume_name.data.strip():
+                # Candidate explicitly gave a title to save this as a new targeted resume
+                has_primary = any(r.is_primary for r in candidate_resumes)
+                resume = Resume(
+                    candidate_id=current_user.id,
+                    source="upload" if stored_filename else "paste",
+                    original_filename=original_filename,
+                    stored_filename=stored_filename,
+                    raw_text=resume_text,
+                    name=form.resume_name.data.strip(),
+                    target_role=form.target_role.data.strip() if form.target_role.data else None,
+                    last_ats_score=result["score"],
+                    last_matched_keywords=", ".join(result["matched_keywords"]),
+                    last_missing_keywords=", ".join(result["missing_keywords"]),
+                    is_primary=not has_primary,
+                )
+                db.session.add(resume)
+            else:
+                # Testing against an ad-hoc JD: update the primary resume's latest benchmark score
+                primary_r = Resume.get_primary(current_user.id)
+                if primary_r:
+                    primary_r.last_ats_score = result["score"]
+                    primary_r.last_matched_keywords = ", ".join(result["matched_keywords"])
+                    primary_r.last_missing_keywords = ", ".join(result["missing_keywords"])
+
             if previous_score and result["score"] > previous_score.last_ats_score:
                 db.session.add(Notification(
                     candidate_id=current_user.id,
                     title="Your ATS score improved",
-                    message=f"Your latest analysis scored {result['score']} — up from {round(previous_score.last_ats_score)}.",
+                    message=f"Your latest analysis scored {result['score']}% — up from {round(previous_score.last_ats_score)}%.",
                     link=url_for("candidate.ats_history"),
                 ))
             db.session.commit()
@@ -681,6 +721,110 @@ def delete_resume(resume_id):
     return redirect(url_for("candidate.my_resumes"))
 
 
+@candidate_bp.route("/resumes/upload", methods=["POST"])
+@role_required("candidate")
+@limiter.limit(lambda: current_app.config.get("RATELIMIT_AUTHENTICATED", "120 per minute"))
+def upload_resume():
+    """Directly upload a resume file (PDF or DOCX) into My Resumes."""
+    if "resume_file" not in request.files:
+        flash("Please select a resume file to upload.", "error")
+        return redirect(url_for("candidate.my_resumes"))
+
+    file = request.files["resume_file"]
+    if not file or not file.filename:
+        flash("Please select a valid resume file.", "error")
+        return redirect(url_for("candidate.my_resumes"))
+
+    try:
+        inspect_file_magic(file.stream, file.filename, allowed_category="resume")
+    except FileValidationError as e:
+        flash(f"File upload error: {str(e)}", "error")
+        return redirect(url_for("candidate.my_resumes"))
+
+    orig_filename = secure_filename(file.filename)
+    stored_filename = generate_secure_stored_filename(orig_filename)
+    filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], stored_filename)
+    file.save(filepath)
+
+    try:
+        raw_text = extract_text(filepath)
+    except Exception:
+        flash("Could not read that resume file — it may be damaged or password-protected.", "error")
+        return redirect(url_for("candidate.my_resumes"))
+
+    if not raw_text or len(raw_text.strip()) < 20:
+        flash("The uploaded file did not contain enough readable text.", "error")
+        return redirect(url_for("candidate.my_resumes"))
+
+    # Parse structured components
+    structured_data = parse_resume_to_structured_dict(raw_text)
+
+    # Calculate initial baseline ATS score
+    detected_cat = predict_category(raw_text)
+    ref_text = category_reference_text(detected_cat) if detected_cat else ""
+    ats_score_res = score_resume(raw_text, ref_text)
+
+    # Name and role
+    custom_name = (request.form.get("resume_name") or "").strip()
+    if not custom_name:
+        custom_name = orig_filename.rsplit(".", 1)[0].replace("_", " ").replace("-", " ").title()
+
+    custom_role = (request.form.get("target_role") or "").strip()
+    if not custom_role:
+        custom_role = structured_data.get("headline") or (detected_cat.title() if detected_cat else "General Role")
+
+    # Check primary
+    has_primary = Resume.query.filter_by(candidate_id=current_user.id, is_primary=True).first() is not None
+    make_primary = bool(request.form.get("is_primary")) or not has_primary
+
+    if make_primary:
+        Resume.query.filter_by(candidate_id=current_user.id).update({"is_primary": False})
+
+    new_resume = Resume(
+        candidate_id=current_user.id,
+        source="upload",
+        original_filename=orig_filename,
+        stored_filename=stored_filename,
+        raw_text=raw_text,
+        name=custom_name,
+        target_role=custom_role,
+        last_ats_score=ats_score_res["score"],
+        last_matched_keywords=", ".join(ats_score_res.get("matched_keywords", [])),
+        last_missing_keywords=", ".join(ats_score_res.get("missing_keywords", [])),
+        is_primary=make_primary,
+    )
+    db.session.add(new_resume)
+    db.session.commit()
+
+    flash(f"Resume '{custom_name}' uploaded successfully!", "success")
+    return redirect(url_for("candidate.my_resumes"))
+
+
+@candidate_bp.route("/api/resumes/<int:resume_id>/preview", methods=["GET"])
+@role_required("candidate")
+def api_resume_preview(resume_id):
+    """Return structured and plain text resume data for in-browser modal viewing."""
+    resume = Resume.query.filter_by(id=resume_id, candidate_id=current_user.id).first_or_404()
+    structured = parse_resume_to_structured_dict(resume.raw_text or "", resume.name or "", resume.target_role or "")
+    return jsonify({
+        "status": "success",
+        "resume": {
+            "id": resume.id,
+            "name": resume.name or "Untitled Resume",
+            "target_role": resume.target_role or "General Role",
+            "source": resume.source,
+            "created_at": resume.created_at.strftime("%d %b %Y"),
+            "is_primary": resume.is_primary,
+            "last_ats_score": round(resume.last_ats_score) if resume.last_ats_score is not None else None,
+            "last_matched_keywords": resume.last_matched_keywords or "",
+            "raw_text": resume.raw_text or "",
+            "structured": structured,
+            "pdf_url": url_for("candidate.download_resume_pdf", resume_id=resume.id),
+            "edit_url": url_for("candidate.resume_builder", resume_id=resume.id),
+        }
+    })
+
+
 @candidate_bp.route("/resumes/<int:resume_id>/pdf")
 @role_required("candidate")
 def download_resume_pdf(resume_id):
@@ -814,7 +958,7 @@ def notifications():
 def privacy_settings():
     privacy_form = PrivacySettingsForm(obj=current_user)
     delete_form = DeleteAccountForm()
-    if privacy_form.validate_on_submit() and privacy_form.submit.data:
+    if privacy_form.validate_on_submit():
         slug = (privacy_form.public_slug.data or "").strip().lower() or _default_public_slug()
         taken = User.query.filter(User.public_slug == slug, User.id != current_user.id).first()
         if taken:
