@@ -1,0 +1,58 @@
+{#
+  Professional status-switcher dropdown for a job posting.
+  Replaces the native <select> (which renders as a plain, unstyled OS list)
+  with a custom button + panel that matches the rest of the Zentra UI.
+
+  Usage:
+    {% from "recruiter/_status_dropdown.html" import status_dropdown %}
+    status_dropdown(job, variant="compact")  -- job card row
+    status_dropdown(job, variant="full")     -- job overview header
+#}
+{% macro status_dropdown(job, variant="compact", return_to=None, dom_id=None) %}
+{% set uid = dom_id or ("status-dd-" ~ job.id ~ "-" ~ variant) %}
+{% set statuses = {
+  "active":  {"label": "Active",  "sub": "Live \u2014 visible to candidates",        "dot": "bg-emerald-500", "text": "text-emerald-700", "bg": "bg-emerald-50",  "border": "border-emerald-200", "icon": "bi-broadcast"},
+  "draft":   {"label": "Draft",   "sub": "Hidden \u2014 not yet published",          "dot": "bg-amber-500",   "text": "text-amber-700",   "bg": "bg-amber-50",    "border": "border-amber-200",   "icon": "bi-file-earmark-text"},
+  "paused":  {"label": "Paused",  "sub": "Not accepting new applications",           "dot": "bg-blue-500",    "text": "text-blue-700",    "bg": "bg-blue-50",     "border": "border-blue-200",    "icon": "bi-pause-circle"},
+  "closed":  {"label": "Closed",  "sub": "Position filled or withdrawn",             "dot": "bg-slate-400",   "text": "text-slate-600",   "bg": "bg-slate-100",   "border": "border-slate-200",   "icon": "bi-x-circle"}
+} %}
+{% set current = statuses.get(job.status, statuses["active"]) %}
+
+<div class="relative inline-block text-left" data-status-dropdown id="{{ uid }}">
+  <button type="button"
+          onclick="toggleStatusDropdown('{{ uid }}')"
+          aria-haspopup="true"
+          aria-expanded="false"
+          class="inline-flex items-center gap-2 {{ 'px-3 py-2' if variant == 'compact' else 'px-3.5 py-2' }} rounded-xl text-xs font-bold border shadow-sm transition-all
+                 {{ current.bg }} {{ current.text }} {{ current.border }}
+                 hover:brightness-[0.98] focus:outline-none focus:ring-2 focus:ring-indigo-600/20">
+    <span class="w-1.5 h-1.5 rounded-full {{ current.dot }} shrink-0"></span>
+    <span>{{ current.label }}</span>
+    <i class="bi bi-chevron-down text-[10px] opacity-60 transition-transform" data-dd-chevron></i>
+  </button>
+
+  <div data-dd-panel
+       class="hidden absolute right-0 z-30 mt-2 w-64 origin-top-right rounded-2xl border border-slate-200 bg-white p-1.5 shadow-lg shadow-slate-900/5 focus:outline-none">
+    <p class="px-3 pt-2 pb-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Publishing Status</p>
+    {% for value, s in statuses.items() %}
+    <form method="POST" action="{{ url_for('recruiter.update_job_status', job_id=job.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+      {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}"/>{% endif %}
+      <input type="hidden" name="status" value="{{ value }}"/>
+      <button type="submit"
+              class="w-full flex items-start gap-2.5 px-3 py-2 rounded-xl text-left transition-colors
+                     {{ 'bg-slate-50' if job.status == value else 'hover:bg-slate-50' }}">
+        <span class="mt-1 w-1.5 h-1.5 rounded-full {{ s.dot }} shrink-0"></span>
+        <span class="flex-1 min-w-0">
+          <span class="block text-xs font-bold text-ink">{{ s.label }}</span>
+          <span class="block text-[11px] text-slate-400 leading-snug mt-0.5">{{ s.sub }}</span>
+        </span>
+        {% if job.status == value %}
+        <i class="bi bi-check-lg text-indigo-600 text-sm mt-0.5 shrink-0"></i>
+        {% endif %}
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+</div>
+{% endmacro %}

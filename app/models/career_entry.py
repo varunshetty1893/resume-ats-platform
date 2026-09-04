@@ -1,4 +1,4 @@
-from datetime import datetime
+from app.utils.time import utcnow
 
 from app import db
 
@@ -24,7 +24,7 @@ class CareerEntry(db.Model):
     end_date = db.Column(db.String(50), nullable=True)
     description = db.Column(db.Text, nullable=True)
     credential_url = db.Column(db.String(500), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
 
     candidate = db.relationship("User", back_populates="career_entries")
 

@@ -1,9 +1,43 @@
 {% extends "base.html" %}
-{% set active_nav = 'profile' %}
+{% set active_nav = 'resume_ai' %}
 {% block title %}Zentra — AI Resume Builder{% endblock %}
 
 {% block extra_head %}
 <style>
+  /* Professional Sleek Custom Scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(99, 102, 241, 0.28) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9999px;
+    transition: background 0.2s ease;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #818cf8;
+  }
+  #editor-container::-webkit-scrollbar,
+  aside::-webkit-scrollbar {
+    width: 5px;
+  }
+  #editor-container::-webkit-scrollbar-thumb,
+  aside::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9999px;
+  }
+  #editor-container::-webkit-scrollbar-thumb:hover,
+  aside::-webkit-scrollbar-thumb:hover {
+    background: #6366f1;
+  }
+
   .builder-grid {
     display: grid;
     grid-template-columns: 240px 1fr 440px;
@@ -50,28 +84,10 @@
       </div>
     </div>
 
-    <!-- Optimization target & Actions -->
+    <!-- Actions -->
     <div class="flex items-center flex-wrap gap-2.5">
-      <!-- Target Job Selector -->
-      <div class="flex items-center gap-1.5 bg-lavender/60 border border-slate-200/80 rounded-xl px-2.5 py-1">
-        <i class="bi bi-bullseye text-indigo-600 text-xs"></i>
-        <select id="builder-target-job" onchange="handleJobTargetChange()" class="bg-transparent text-xs font-semibold text-ink border-0 focus:ring-0 focus:outline-none cursor-pointer">
-          <option value="">-- General ATS Evaluation --</option>
-          {% for j in active_jobs %}
-          <option value="{{ j.id }}" {% if target_job and target_job.id == j.id %}selected{% endif %}>
-            {{ j.title }} ({{ j.recruiter_profile.company_name if j.recruiter_profile else 'Company' }})
-          </option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <!-- Template Selector -->
-      <select id="builder-template" onchange="handleTemplateChange()" class="bg-lavender/60 border border-slate-200/80 rounded-xl px-3 py-1.5 text-xs font-semibold text-ink focus:outline-none cursor-pointer">
-        <option value="modern" {% if initial_data.template == 'modern' %}selected{% endif %}>Modern Template</option>
-        <option value="professional" {% if initial_data.template == 'professional' %}selected{% endif %}>Professional Template</option>
-        <option value="minimal" {% if initial_data.template == 'minimal' %}selected{% endif %}>Minimal Template</option>
-        <option value="executive" {% if initial_data.template == 'executive' %}selected{% endif %}>Executive Template</option>
-      </select>
+      <input type="hidden" id="builder-target-job" value="">
+      <input type="hidden" id="builder-template" value="modern">
 
       <!-- Save Status Indicator -->
       <span id="save-status-text" class="text-xs font-semibold text-slate-400 px-1 hidden sm:inline">Saved</span>
@@ -152,36 +168,38 @@
           </div>
           <div class="grid sm:grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">Full Name *</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">Full Name <span class="text-rose-500">*</span></label>
               <input type="text" id="p-fullname" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors" placeholder="e.g. Jordan Lee" oninput="handleFieldChange()">
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">Professional Title *</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">Professional Title <span class="text-rose-500">*</span></label>
               <input type="text" id="p-title" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors" placeholder="e.g. Senior Backend Engineer" oninput="handleFieldChange()">
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">Email *</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">Email <span class="text-rose-500">*</span></label>
               <input type="email" id="p-email" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors" placeholder="jordan@example.com" oninput="handleFieldChange()">
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">Phone Number</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">Phone Number <span class="text-rose-500">*</span></label>
               <input type="tel" id="p-phone" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors" placeholder="+1 (555) 019-2834" oninput="handleFieldChange()">
             </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">Location / City</label>
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-semibold text-slate-500 mb-1">Location / City <span class="text-rose-500">*</span></label>
               <input type="text" id="p-location" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors" placeholder="San Francisco, CA / Remote" oninput="handleFieldChange()">
             </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">LinkedIn Profile</label>
-              <input type="url" id="p-linkedin" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors" placeholder="linkedin.com/in/jordanlee" oninput="handleFieldChange()">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">GitHub Profile</label>
-              <input type="url" id="p-github" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors" placeholder="github.com/jordanlee" oninput="handleFieldChange()">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">Portfolio / Website</label>
-              <input type="url" id="p-portfolio" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors" placeholder="jordanlee.dev" oninput="handleFieldChange()">
+            
+            <!-- Dynamic Links Section (Up to 3 links) -->
+            <div class="sm:col-span-2 border-t border-slate-100 pt-3 mt-1">
+              <div class="flex items-center justify-between mb-2">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700">Public Profiles &amp; Links</label>
+                  <p class="text-[11px] text-slate-400">Add up to 3 links (e.g. GitHub, Portfolio, LinkedIn, X, Blog, etc.)</p>
+                </div>
+                <button type="button" id="btn-add-link" onclick="addPersonalLink()" class="text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer">
+                  <i class="bi bi-plus-lg"></i> Add Link
+                </button>
+              </div>
+              <div id="personal-links-list" class="space-y-2"></div>
             </div>
           </div>
         </div>
@@ -189,12 +207,22 @@
         <!-- 2. PROFESSIONAL SUMMARY -->
         <div id="sec-summary" class="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-3">
           <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h2 class="font-bold text-sm text-ink flex items-center gap-2">
-              <i class="bi bi-card-text text-indigo-600"></i> Professional Summary
-            </h2>
-            <span class="text-[11px] text-slate-400">2-4 impactful sentences</span>
+            <div>
+              <h2 class="font-bold text-sm text-ink flex items-center gap-2">
+                <i class="bi bi-card-text text-indigo-600"></i> Professional Summary <span class="text-rose-500">*</span>
+              </h2>
+              <p class="text-[11px] text-slate-400 mt-0.5">2-4 impactful sentences. Type draft notes, then use <b>AI Retouch</b> to elevate them.</p>
+            </div>
+            <button type="button" id="btn-retouch-summary" onclick="retouchSummaryWithAI()" class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors border border-indigo-100 shadow-2xs cursor-pointer">
+              <i class="bi bi-stars text-indigo-500"></i>
+              <span id="ai-retouch-summary-label">AI Retouch</span>
+            </button>
           </div>
-          <textarea id="p-summary" rows="3" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors resize-none" placeholder="Results-driven Backend Engineer with 5+ years specializing in Python, Flask, and distributed PostgreSQL databases..." oninput="handleFieldChange()"></textarea>
+          <textarea id="p-summary" rows="4" class="w-full bg-lavender/60 border border-transparent rounded-lg px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors resize-y" placeholder="Results-driven Backend Engineer with 5+ years specializing in Python, Flask, and distributed PostgreSQL databases..." oninput="handleFieldChange()"></textarea>
+          <div id="ai-summary-notice" class="hidden p-2.5 rounded-lg bg-emerald-50 text-emerald-800 text-xs flex items-center justify-between border border-emerald-100">
+            <span class="inline-flex items-center gap-1.5 font-medium"><i class="bi bi-check2-circle text-emerald-600 text-sm"></i> <span id="ai-summary-msg">Summary enhanced!</span></span>
+            <button type="button" onclick="undoSummaryRetouch()" class="text-xs underline text-emerald-700 hover:text-emerald-900 font-semibold cursor-pointer">Undo</button>
+          </div>
         </div>
 
         <!-- 3. EXPERIENCE EDITOR -->
@@ -457,11 +485,13 @@
 {% endblock %}
 
 {% block scripts %}
+<script id="initial-resume-data" type="application/json">{{ initial_data|tojson|safe }}</script>
 <script>
-  let resumeState = {{ initial_data|tojson }};
+  let resumeState = JSON.parse(document.getElementById('initial-resume-data')?.textContent || '{}');
   let isUnsaved = false;
   let activeAiTarget = null;
   let atsDebounceTimer = null;
+  let originalSummaryText = '';
 
   // Initialize form with initial state
   window.addEventListener('DOMContentLoaded', () => {
@@ -478,11 +508,9 @@
     document.getElementById('p-email').value = p.email || '';
     document.getElementById('p-phone').value = p.phone || '';
     document.getElementById('p-location').value = p.location || '';
-    document.getElementById('p-linkedin').value = p.linkedin || '';
-    document.getElementById('p-github').value = p.github || '';
-    document.getElementById('p-portfolio').value = p.portfolio || '';
     document.getElementById('p-summary').value = resumeState.summary || '';
 
+    renderPersonalLinks();
     renderExperienceList();
     renderEducationList();
     renderSkillTags();
@@ -494,15 +522,19 @@
   function markUnsaved() {
     isUnsaved = true;
     const status = document.getElementById('save-status-text');
-    status.textContent = 'Unsaved changes';
-    status.className = 'text-xs font-semibold text-amber-500 px-1 hidden sm:inline';
+    if (status) {
+      status.textContent = 'Unsaved changes';
+      status.className = 'text-xs font-semibold text-amber-500 px-1 hidden sm:inline';
+    }
   }
 
   function markSaved() {
     isUnsaved = false;
     const status = document.getElementById('save-status-text');
-    status.textContent = 'Saved just now';
-    status.className = 'text-xs font-semibold text-emerald-600 px-1 hidden sm:inline';
+    if (status) {
+      status.textContent = 'Saved just now';
+      status.className = 'text-xs font-semibold text-emerald-600 px-1 hidden sm:inline';
+    }
   }
 
   function handleFieldChange() {
@@ -514,22 +546,24 @@
   }
 
   function syncStateFromForm() {
+    const p = resumeState.personal || {};
     resumeState.personal = {
-      full_name: document.getElementById('p-fullname').value.trim(),
-      title: document.getElementById('p-title').value.trim(),
-      email: document.getElementById('p-email').value.trim(),
-      phone: document.getElementById('p-phone').value.trim(),
-      location: document.getElementById('p-location').value.trim(),
-      linkedin: document.getElementById('p-linkedin').value.trim(),
-      github: document.getElementById('p-github').value.trim(),
-      portfolio: document.getElementById('p-portfolio').value.trim(),
+      full_name: document.getElementById('p-fullname')?.value.trim() || '',
+      title: document.getElementById('p-title')?.value.trim() || '',
+      email: document.getElementById('p-email')?.value.trim() || '',
+      phone: document.getElementById('p-phone')?.value.trim() || '',
+      location: document.getElementById('p-location')?.value.trim() || '',
+      links: (p.links || []).filter(l => l && l.trim()),
+      github: (p.links && p.links[0]) || p.github || '',
+      portfolio: (p.links && p.links[1]) || p.portfolio || '',
+      linkedin: (p.links && p.links[2]) || p.linkedin || '',
     };
-    resumeState.summary = document.getElementById('p-summary').value.trim();
-    resumeState.template = document.getElementById('builder-template').value;
+    resumeState.summary = document.getElementById('p-summary')?.value.trim() || '';
+    resumeState.template = document.getElementById('builder-template')?.value || 'modern';
   }
 
   function handleTemplateChange() {
-    resumeState.template = document.getElementById('builder-template').value;
+    resumeState.template = document.getElementById('builder-template')?.value || 'modern';
     markUnsaved();
     renderLivePreview();
   }
@@ -537,6 +571,126 @@
   function handleJobTargetChange() {
     markUnsaved();
     triggerLiveAtsCheck();
+  }
+
+  // --- DYNAMIC PERSONAL LINKS (UP TO 3) ---
+  function renderPersonalLinks() {
+    const container = document.getElementById('personal-links-list');
+    const addBtn = document.getElementById('btn-add-link');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const p = resumeState.personal = resumeState.personal || {};
+    if (!p.links) {
+      p.links = [p.github, p.portfolio, p.linkedin].filter(Boolean);
+    }
+
+    p.links.forEach((link, idx) => {
+      const row = document.createElement('div');
+      row.className = 'flex items-center gap-2';
+      row.innerHTML = `
+        <div class="relative flex-1">
+          <span class="absolute left-3 top-2.5 text-slate-400 text-xs"><i class="bi bi-link-45deg"></i></span>
+          <input type="url" value="${link || ''}" oninput="updatePersonalLink(${idx}, this.value)" placeholder="https://github.com/your-name or https://yourportfolio.com" class="w-full bg-lavender/60 border border-transparent rounded-lg pl-8 pr-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors">
+        </div>
+        <button type="button" onclick="removePersonalLink(${idx})" class="text-slate-400 hover:text-rose-500 p-1.5 transition-colors cursor-pointer" title="Remove link">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      `;
+      container.appendChild(row);
+    });
+
+    if (addBtn) {
+      addBtn.classList.toggle('hidden', p.links.length >= 3);
+    }
+  }
+
+  function addPersonalLink() {
+    resumeState.personal = resumeState.personal || {};
+    resumeState.personal.links = resumeState.personal.links || [];
+    if (resumeState.personal.links.length < 3) {
+      resumeState.personal.links.push('');
+      handleFieldChange();
+      renderPersonalLinks();
+    }
+  }
+
+  function removePersonalLink(idx) {
+    if (resumeState.personal && resumeState.personal.links) {
+      resumeState.personal.links.splice(idx, 1);
+      handleFieldChange();
+      renderPersonalLinks();
+    }
+  }
+
+  function updatePersonalLink(idx, val) {
+    if (resumeState.personal && resumeState.personal.links) {
+      resumeState.personal.links[idx] = val;
+      handleFieldChange();
+    }
+  }
+
+  // --- SUMMARY AI RETOUCH ---
+  async function retouchSummaryWithAI() {
+    const summaryField = document.getElementById('p-summary');
+    const btn = document.getElementById('btn-retouch-summary');
+    const label = document.getElementById('ai-retouch-summary-label');
+    const notice = document.getElementById('ai-summary-notice');
+    const noticeMsg = document.getElementById('ai-summary-msg');
+    if (!summaryField) return;
+
+    const rawSummary = summaryField.value.trim();
+    const headline = document.getElementById('p-title')?.value.trim() || '';
+    const skillsObj = resumeState.skills || {};
+    const allSkills = Object.values(skillsObj).flat().join(', ');
+
+    originalSummaryText = summaryField.value;
+
+    if (btn) btn.disabled = true;
+    if (label) label.textContent = 'Enhancing...';
+
+    try {
+      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+      const res = await fetch('{{ url_for("candidate.api_retouch_bio") }}', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+          raw_bio: rawSummary,
+          headline: headline,
+          skills: allSkills,
+          target_role: headline
+        })
+      });
+
+      const data = await res.json();
+      if (data.status === 'success' && data.retouched_bio) {
+        summaryField.value = data.retouched_bio;
+        handleFieldChange();
+        if (notice) notice.classList.remove('hidden');
+        if (noticeMsg) noticeMsg.textContent = 'Summary enhanced!';
+      } else {
+        alert('Unable to enhance summary. Please try again.');
+      }
+    } catch (err) {
+      console.error('AI Retouch error:', err);
+      alert('Network error while connecting to AI assistant.');
+    } finally {
+      if (btn) btn.disabled = false;
+      if (label) label.textContent = 'AI Retouch';
+    }
+  }
+
+  function undoSummaryRetouch() {
+    const summaryField = document.getElementById('p-summary');
+    const notice = document.getElementById('ai-summary-notice');
+    if (summaryField && originalSummaryText !== undefined) {
+      summaryField.value = originalSummaryText;
+      handleFieldChange();
+    }
+    if (notice) notice.classList.add('hidden');
   }
 
   // --- EXPERIENCE ---
@@ -633,10 +787,10 @@
           <button type="button" onclick="removeEducation(${idx})" class="text-rose-500 hover:text-rose-700 text-xs"><i class="bi bi-trash"></i></button>
         </div>
         <div class="grid sm:grid-cols-2 gap-2">
-          <input type="text" placeholder="Degree (e.g. B.S. Computer Science)" value="${edu.degree || ''}" oninput="updateEduField(${idx}, 'degree', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
-          <input type="text" placeholder="Institution / University" value="${edu.institution || ''}" oninput="updateEduField(${idx}, 'institution', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
-          <input type="text" placeholder="Graduation Year (e.g. 2023)" value="${edu.year || ''}" oninput="updateEduField(${idx}, 'year', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
-          <input type="text" placeholder="GPA / Honors (optional)" value="${edu.gpa || ''}" oninput="updateEduField(${idx}, 'gpa', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
+          <input type="text" placeholder="Degree (e.g. B.S. Computer Science) *" value="${edu.degree || ''}" oninput="updateEduField(${idx}, 'degree', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-600">
+          <input type="text" placeholder="Institution / University *" value="${edu.institution || ''}" oninput="updateEduField(${idx}, 'institution', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-600">
+          <input type="text" placeholder="Graduation Year (e.g. 2026) *" value="${edu.year || ''}" oninput="updateEduField(${idx}, 'year', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-600">
+          <input type="text" placeholder="GPA / CGPA / % (e.g. 8.5 CGPA, 3.8 GPA, or 85%) (optional)" value="${edu.gpa || ''}" oninput="updateEduField(${idx}, 'gpa', this.value)" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-600">
         </div>
       `;
       list.appendChild(item);
@@ -1007,9 +1161,100 @@
     }
   }
 
+  // --- VALIDATION ---
+  function validateBuilder() {
+    syncStateFromForm();
+    const p = resumeState.personal || {};
+
+    if (!p.full_name || p.full_name.length < 2) {
+      scrollToSection('sec-personal');
+      document.getElementById('p-fullname')?.focus();
+      alert('Please enter your Full Name.');
+      return false;
+    }
+    if (!p.title || p.title.length < 2) {
+      scrollToSection('sec-personal');
+      document.getElementById('p-title')?.focus();
+      alert('Please enter your Professional Title.');
+      return false;
+    }
+    if (!p.email || !p.email.includes('@')) {
+      scrollToSection('sec-personal');
+      document.getElementById('p-email')?.focus();
+      alert('Please enter a valid Email address.');
+      return false;
+    }
+    if (!p.phone || p.phone.length < 5) {
+      scrollToSection('sec-personal');
+      document.getElementById('p-phone')?.focus();
+      alert('Please enter your Phone Number.');
+      return false;
+    }
+    if (!p.location || p.location.length < 2) {
+      scrollToSection('sec-personal');
+      document.getElementById('p-location')?.focus();
+      alert('Please enter your Location / City.');
+      return false;
+    }
+    if (!resumeState.summary || resumeState.summary.trim().length < 5) {
+      scrollToSection('sec-summary');
+      document.getElementById('p-summary')?.focus();
+      alert('Please write a brief Professional Summary.');
+      return false;
+    }
+
+    const exps = resumeState.experience || [];
+    for (let i = 0; i < exps.length; i++) {
+      const e = exps[i];
+      if (!e.title || !e.company || !e.location || !e.start_date || !e.end_date) {
+        scrollToSection('sec-experience');
+        alert(`Please fill in all required fields for Position #${i + 1} (Job Title, Company, Location, Start Date, End Date).`);
+        return false;
+      }
+    }
+
+    const edus = resumeState.education || [];
+    for (let i = 0; i < edus.length; i++) {
+      const ed = edus[i];
+      if (!ed.degree || !ed.degree.trim()) {
+        scrollToSection('sec-education');
+        alert(`Please enter the Degree for Degree #${i + 1}.`);
+        return false;
+      }
+      if (!ed.institution || !ed.institution.trim()) {
+        scrollToSection('sec-education');
+        alert(`Please enter the Institution / University for Degree #${i + 1}.`);
+        return false;
+      }
+      if (!ed.year || !ed.year.trim()) {
+        scrollToSection('sec-education');
+        alert(`Please enter the Graduation Year for Degree #${i + 1}.`);
+        return false;
+      }
+      if (!/\b(19\d\d|20\d\d)\b/.test(ed.year.trim())) {
+        scrollToSection('sec-education');
+        alert(`Please enter a valid Graduation Year (e.g. 2024 or 2026) for Degree #${i + 1}.`);
+        return false;
+      }
+      if (ed.gpa && ed.gpa.trim()) {
+        const gpaVal = ed.gpa.trim();
+        const hasDigit = /\d/.test(gpaVal);
+        const isHonor = /^(first\s*class|distinction|honors?|summa\s*cum\s*laude|magna\s*cum\s*laude|cum\s*laude|pass|grade\s*[a-d][+-]?)/i.test(gpaVal);
+        if (!hasDigit && !isHonor) {
+          scrollToSection('sec-education');
+          alert(`Invalid GPA / Score for Degree #${i + 1}. Please enter a valid CGPA, GPA, or percentage (e.g. 8.5 CGPA, 3.8 GPA, or 85%).`);
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
   // --- LIVE PREVIEW RENDER ---
   function renderLivePreview() {
     const preview = document.getElementById('resume-live-preview');
+    if (!preview) return;
     const t = resumeState.template || 'modern';
     preview.className = `preview-paper preview-${t} rounded-xl p-6 text-left text-xs leading-relaxed space-y-4 border border-slate-200`;
 
@@ -1021,11 +1266,14 @@
     const achs = resumeState.achievements || [];
     const skills = resumeState.skills || {};
 
+    const dynamicLinks = (p.links && Array.isArray(p.links) ? p.links : [p.github, p.portfolio, p.linkedin]).filter(Boolean);
+    const contactParts = [p.email, p.phone, p.location, ...dynamicLinks].filter(Boolean);
+
     let html = `
       <div>
         <h2 class="text-xl font-extrabold text-ink tracking-tight">${p.full_name || 'Your Full Name'}</h2>
         ${p.title ? `<p class="text-indigo-600 font-bold text-xs mt-0.5">${p.title}</p>` : ''}
-        <p class="text-[11px] text-slate-400 mt-1">${[p.email, p.phone, p.location, p.linkedin, p.github].filter(Boolean).join('  ·  ')}</p>
+        <p class="text-[11px] text-slate-400 mt-1">${contactParts.join('  ·  ')}</p>
       </div>
       <hr class="border-slate-100">
     `;
@@ -1109,7 +1357,7 @@
 
   // --- SAVE RESUME ---
   async function saveResume() {
-    syncStateFromForm();
+    if (!validateBuilder()) return;
     const name = document.getElementById('builder-resume-name').value.trim() || 'My Resume';
     const targetJobId = document.getElementById('builder-target-job').value;
     const resumeId = document.getElementById('builder-resume-id').value;
@@ -1149,7 +1397,7 @@
 
   // --- PDF DOWNLOAD ---
   async function downloadCurrentPdf() {
-    syncStateFromForm();
+    if (!validateBuilder()) return;
     const btn = document.querySelector('button[onclick="downloadCurrentPdf()"]');
     btn.innerHTML = '<i class="bi bi-arrow-repeat animate-spin"></i> Exporting...';
     btn.disabled = true;
@@ -1168,7 +1416,9 @@
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${(resumeState.personal.full_name || 'resume').replace(/\s+/g, '_')}_resume.pdf`;
+      const rawName = (resumeState.personal && resumeState.personal.full_name ? resumeState.personal.full_name.trim() : '') || 'Candidate';
+      const cleanName = rawName.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'Candidate';
+      a.download = `Zentra_Resume_for_${cleanName}.pdf`;
       a.click();
       window.URL.revokeObjectURL(url);
     } catch (e) {

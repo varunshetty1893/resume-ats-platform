@@ -22,7 +22,15 @@ def create_app(config_name=None):
     app = Flask(__name__)
     app.config.from_object(config_by_name[config_name])
 
-    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    try:
+        os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    except OSError:
+        # Fallback to /tmp on serverless environments (e.g. Vercel, AWS Lambda)
+        app.config["UPLOAD_FOLDER"] = "/tmp/uploads"
+        try:
+            os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+        except OSError:
+            pass
 
     # Logging setup
     if not app.debug and not app.testing:
@@ -53,11 +61,27 @@ def create_app(config_name=None):
     from app.models.notification import Notification  # noqa: F401
     from app.models.admin_audit_log import AdminAuditLog  # noqa: F401
     from app.models.admin_setting import AdminSetting  # noqa: F401
+    from app.models.support_ticket import SupportTicket, SupportTicketMessage  # noqa: F401
 
     @login_manager.user_loader
     def load_user(user_id):
-        user = User.query.get(int(user_id))
-        if user and not user.is_active_account:
+        # user_id is User.get_id()'s "<id>|<password stamp>" — reject
+        # anything that doesn't carry a matching stamp so that a password
+        # change invalidates sessions/remember-cookies issued before it,
+        # not just future logins with the old password (see
+        # User.get_id/User.password_stamp). Sessions from before this
+        # check existed have no "|" and are rejected the same way, which
+        # is a one-time forced re-login for anyone already signed in.
+        raw_id, sep, stamp = str(user_id).partition("|")
+        if not sep:
+            return None
+        try:
+            user = User.query.get(int(raw_id))
+        except (TypeError, ValueError):
+            return None
+        if not user or not user.is_active_account:
+            return None
+        if stamp != user.password_stamp:
             return None
         return user
 
@@ -76,6 +100,25 @@ def create_app(config_name=None):
 
     from app.utils.filters import register_filters
     register_filters(app)
+
+    # --- Maintenance Mode Enforcement ---
+    @app.before_request
+    def check_maintenance_mode():
+        if app.testing:
+            return
+        if request.path.startswith("/static/") or request.endpoint in ("auth.login", "auth.logout"):
+            return
+        from flask_login import current_user
+        if current_user.is_authenticated and current_user.is_admin:
+            return
+        try:
+            from app.models.admin_setting import AdminSetting
+            if AdminSetting.get("maintenance_mode", "false").lower() == "true":
+                if _is_json_request():
+                    return jsonify({"status": "error", "error": "Maintenance Mode", "message": "Zentra is undergoing scheduled maintenance."}), 503
+                return render_template("errors/503.html"), 503
+        except Exception:
+            pass
 
     # --- Global Error Handlers (Information Leakage Prevention) ---
     def _is_json_request():

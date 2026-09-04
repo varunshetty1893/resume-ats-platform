@@ -99,6 +99,11 @@ def signup():
     signup_form = SignupForm(prefix="signup")
 
     if signup_form.validate_on_submit():
+        from app.models.admin_setting import AdminSetting
+        if AdminSetting.get("registration_open", "true").lower() == "false":
+            flash("Candidate registration is currently disabled by administrator.", "error")
+            return render_template("auth/login.html", login_form=login_form, signup_form=signup_form)
+
         existing = User.query.filter_by(email=signup_form.email.data.lower().strip()).first()
         if existing:
             flash("An account with this email already exists.", "error")

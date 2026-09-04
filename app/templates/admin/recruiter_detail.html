@@ -13,7 +13,7 @@
 
   <div class="grid lg:grid-cols-3 gap-6">
 
-    <!-- Company info card -->
+    <!-- Recruiter & Company Summary Card -->
     <div class="lg:col-span-1 space-y-5">
       <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm">
         <div class="flex items-center gap-4 pb-5 border-b border-slate-100">
@@ -22,30 +22,55 @@
           </span>
           <div class="min-w-0">
             <h2 class="text-lg font-extrabold text-ink truncate">{{ profile.company_name }}</h2>
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold mt-1 {{ 'bg-emerald-50 text-emerald-700 border border-emerald-200' if profile.approval_status == 'approved' else ('bg-amber-50 text-amber-700 border border-amber-200' if profile.approval_status == 'pending' else 'bg-rose-50 text-rose-700 border border-rose-200') }}">
-              {{ profile.approval_status | title }}
-            </span>
+            <div class="flex items-center gap-2 mt-1 flex-wrap">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ 'bg-emerald-50 text-emerald-700 border border-emerald-200' if profile.approval_status == 'approved' else ('bg-amber-50 text-amber-700 border border-amber-200' if profile.approval_status == 'pending' else 'bg-rose-50 text-rose-700 border border-rose-200') }}">
+                {{ profile.approval_status | title }}
+              </span>
+              {% if profile.user.is_active_account %}
+              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
+              </span>
+              {% else %}
+              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Disabled
+              </span>
+              {% endif %}
+            </div>
           </div>
         </div>
 
-        <div class="py-4 space-y-2.5 text-xs">
-          <div class="flex justify-between"><span class="text-slate-400">Primary Contact</span><span class="font-medium text-ink">{{ profile.user.full_name }}</span></div>
-          <div class="flex justify-between"><span class="text-slate-400">Account Email</span><span class="font-mono text-slate-600 truncate max-w-[150px]">{{ profile.user.email }}</span></div>
-          {% if profile.industry %}<div class="flex justify-between"><span class="text-slate-400">Industry</span><span class="font-medium text-ink">{{ profile.industry | title }}</span></div>{% endif %}
-          {% if profile.company_size %}<div class="flex justify-between"><span class="text-slate-400">Company Size</span><span class="font-medium text-ink">{{ profile.company_size }}</span></div>{% endif %}
-          {% if profile.phone %}<div class="flex justify-between"><span class="text-slate-400">Phone</span><span class="font-medium text-ink">{{ profile.phone }}</span></div>{% endif %}
-          {% if profile.company_website %}
-          <div class="flex justify-between"><span class="text-slate-400">Website</span>
-            <a href="{{ profile.company_website }}" target="_blank" class="text-indigo-600 hover:underline truncate max-w-[140px]">{{ profile.company_website }}</a>
+        <div class="py-4 space-y-3 text-xs">
+          <p class="font-bold text-[11px] uppercase tracking-wider text-slate-400">Recruiter Contact</p>
+          <div class="flex justify-between items-center"><span class="text-slate-400">Full Name</span><span class="font-semibold text-ink">{{ profile.user.full_name or "Not provided" }}</span></div>
+          <div class="flex justify-between items-center"><span class="text-slate-400">Account Email</span><span class="font-mono text-slate-600 truncate max-w-[170px]">{{ profile.user.email }}</span></div>
+          <div class="flex justify-between items-center"><span class="text-slate-400">Designation / Role</span><span class="font-medium text-ink">{{ profile.contact_role or profile.user.headline or "Not provided" }}</span></div>
+          <div class="flex justify-between items-center"><span class="text-slate-400">Phone Number</span><span class="font-medium text-ink">{{ profile.phone or profile.user.phone or "Not provided" }}</span></div>
+          <div class="flex justify-between items-center"><span class="text-slate-400">Location</span><span class="font-medium text-ink">{{ profile.user.location or "Not provided" }}</span></div>
+
+          <p class="font-bold text-[11px] uppercase tracking-wider text-slate-400 pt-2 border-t border-slate-100">Company Information</p>
+          <div class="flex justify-between items-center"><span class="text-slate-400">Company Name</span><span class="font-semibold text-ink">{{ profile.company_name }}</span></div>
+          <div class="flex justify-between items-center"><span class="text-slate-400">Industry</span><span class="font-medium text-ink">{{ profile.industry | title if profile.industry else "Not provided" }}</span></div>
+          <div class="flex justify-between items-center"><span class="text-slate-400">Company Size</span><span class="font-medium text-ink">{{ profile.company_size or "Not provided" }}</span></div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400">Website</span>
+            {% if profile.company_website %}
+            <a href="{{ profile.company_website }}" target="_blank" class="text-indigo-600 hover:underline truncate max-w-[160px] font-medium">{{ profile.company_website }}</a>
+            {% else %}
+            <span class="text-slate-400">Not provided</span>
+            {% endif %}
           </div>
-          {% endif %}
-          <div class="flex justify-between"><span class="text-slate-400">Submitted</span><span class="font-medium text-ink">{{ profile.submitted_at.strftime('%b %d, %Y') }}</span></div>
+
+          <p class="font-bold text-[11px] uppercase tracking-wider text-slate-400 pt-2 border-t border-slate-100">Registration & Vetting</p>
+          <div class="flex justify-between items-center"><span class="text-slate-400">Registration Date</span><span class="font-medium text-ink">{{ profile.submitted_at.strftime('%b %d, %Y') if profile.submitted_at else (profile.user.created_at.strftime('%b %d, %Y') if profile.user.created_at else "Not provided") }}</span></div>
           {% if profile.reviewed_at %}
-          <div class="flex justify-between"><span class="text-slate-400">Reviewed On</span><span class="font-medium text-ink">{{ profile.reviewed_at.strftime('%b %d, %Y') }}</span></div>
+          <div class="flex justify-between items-center"><span class="text-slate-400">Reviewed On</span><span class="font-medium text-ink">{{ profile.reviewed_at.strftime('%b %d, %Y') }}</span></div>
+          {% endif %}
+          {% if reviewing_admin %}
+          <div class="flex justify-between items-center"><span class="text-slate-400">Reviewing Admin</span><span class="font-medium text-ink">{{ reviewing_admin.full_name }}</span></div>
           {% endif %}
         </div>
 
-        <!-- Quick approval actions -->
+        <!-- Approval / Vetting Actions -->
         <div class="pt-4 border-t border-slate-100 space-y-2">
           {% if profile.approval_status != 'approved' %}
           <form method="POST" action="{{ url_for('admin.approve_recruiter', profile_id=profile.id) }}">
@@ -56,33 +81,44 @@
           </form>
           {% endif %}
           {% if profile.approval_status != 'rejected' %}
-          <form method="POST" action="{{ url_for('admin.reject_recruiter', profile_id=profile.id) }}"
-                onsubmit="return confirm('Are you sure you want to reject this recruiter account?')">
+          <button type="button" onclick="document.getElementById('reject-modal').classList.remove('hidden'); document.getElementById('reject-modal').classList.add('flex');"
+                  class="w-full py-2.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold hover:bg-rose-100 transition-colors inline-flex items-center justify-center gap-1.5">
+            <i class="bi bi-x-circle"></i> Reject / Revoke Approval
+          </button>
+          {% endif %}
+          <form method="POST" action="{{ url_for('admin.toggle_user', user_id=profile.user_id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="w-full py-2.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold hover:bg-rose-100 transition-colors">
-              Reject / Revoke Account
+            <button type="submit"
+                    class="w-full py-2.5 rounded-xl text-xs font-semibold border transition-colors {{ 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100' if profile.user.is_active_account else 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100' }}">
+              <i class="bi {{ 'bi-person-dash' if profile.user.is_active_account else 'bi-person-check' }} mr-1"></i>
+              {{ 'Disable Account Access' if profile.user.is_active_account else 'Re-enable Account Access' }}
             </button>
           </form>
-          {% endif %}
           <a href="{{ url_for('admin.user_detail', user_id=profile.user_id) }}"
              class="flex items-center justify-center gap-1.5 w-full py-2.5 border border-slate-200 rounded-xl text-xs font-semibold hover:bg-slate-50 text-slate-700 transition-colors">
-            <i class="bi bi-person"></i> View User Account
+            <i class="bi bi-person"></i> View User Account Dossier
           </a>
         </div>
       </div>
 
-      {% if profile.hiring_needs %}
+      <!-- Hiring Needs Card -->
       <div class="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-sm">
-        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Stated Hiring Needs</p>
-        <p class="text-xs text-slate-600 leading-relaxed">{{ profile.hiring_needs }}</p>
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Stated Hiring Needs & Overview</p>
+        <p class="text-xs text-slate-600 leading-relaxed">{{ profile.hiring_needs or "Not provided" }}</p>
+      </div>
+
+      {% if profile.rejection_reason %}
+      <div class="bg-rose-50 border border-rose-200 rounded-2xl p-5 shadow-sm text-xs text-rose-800">
+        <p class="font-bold uppercase tracking-wider text-[11px] mb-1">Rejection Reason</p>
+        <p>{{ profile.rejection_reason }}</p>
       </div>
       {% endif %}
     </div>
 
-    <!-- Right area: Jobs & Audit -->
+    <!-- Right area: Jobs & Vetting Audit History -->
     <div class="lg:col-span-2 space-y-6">
 
-      <!-- Stats Grid -->
+      <!-- Metrics Grid -->
       <div class="grid grid-cols-3 gap-4">
         <div class="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-sm text-center">
           <p class="text-2xl font-extrabold text-ink">{{ profile.jobs|length }}</p>
@@ -132,22 +168,22 @@
                   </span>
                 </td>
                 <td class="px-6 py-3.5 font-semibold text-ink">{{ job.applications|length }}</td>
-                <td class="px-6 py-3.5 text-slate-400 text-xs">{{ job.created_at.strftime('%b %d, %Y') }}</td>
+                <td class="px-6 py-3.5 text-slate-400 text-xs">{{ job.created_at.strftime('%b %d, %Y') if job.created_at else "—" }}</td>
                 <td class="px-6 py-3.5">
-                  <a href="{{ url_for('admin.job_detail', job_id=job.id) }}" class="text-indigo-600 hover:underline text-xs font-semibold">Inspect →</a>
+                  <a href="{{ url_for('admin.job_detail', job_id=job.id) }}" class="text-indigo-600 hover:underline text-xs font-semibold">Inspect Job →</a>
                 </td>
               </tr>
               {% else %}
-              <tr><td colspan="5" class="px-6 py-8 text-center text-slate-400">No jobs posted yet.</td></tr>
+              <tr><td colspan="5" class="px-6 py-8 text-center text-slate-400">No jobs posted by this recruiter yet.</td></tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
       </div>
 
-      <!-- Audit History -->
+      <!-- Vetting Audit History -->
       <div class="bg-white border border-slate-200/90 rounded-2xl shadow-sm p-6">
-        <h3 class="font-bold text-ink text-base mb-4">Recruiter Vetting Audit History</h3>
+        <h3 class="font-bold text-ink text-base mb-4">Recruiter Vetting & Account History</h3>
         {% if audit_entries %}
         <div class="space-y-3">
           {% for entry in audit_entries %}
@@ -158,7 +194,7 @@
             <div class="flex-1 min-w-0">
               <p class="font-semibold text-ink">{{ entry.action | replace('_', ' ') | title }}</p>
               <p class="text-slate-500 mt-0.5">{{ entry.detail or '—' }}</p>
-              <p class="text-slate-400 text-[10px] mt-1">{{ entry.created_at.strftime('%b %d, %Y at %H:%M') }} by {{ entry.admin.full_name }}</p>
+              <p class="text-slate-400 text-[10px] mt-1">{{ entry.created_at.strftime('%b %d, %Y at %H:%M') }} by {{ entry.admin.full_name if entry.admin else 'System Admin' }}</p>
             </div>
           </div>
           {% endfor %}
@@ -169,6 +205,27 @@
       </div>
 
     </div>
+  </div>
+</div>
+
+<!-- Rejection Modal -->
+<div id="reject-modal" class="fixed inset-0 bg-ink/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-100">
+    <h3 class="font-bold text-ink text-lg mb-1">Reject Recruiter Registration</h3>
+    <p class="text-xs text-slate-500 mb-4">{{ profile.company_name }} ({{ profile.user.email }})</p>
+    <form method="POST" action="{{ url_for('admin.reject_recruiter', profile_id=profile.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="block text-xs font-semibold text-slate-700 mb-1.5">Reason for Rejection (sent to recruiter)</label>
+      <textarea name="reason" rows="3" placeholder="Explain what additional credentials or fixes are required…"
+                class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-ink focus:ring-2 focus:ring-slate-100 resize-none mb-4"></textarea>
+      <div class="flex gap-2.5 justify-end">
+        <button type="button" onclick="document.getElementById('reject-modal').classList.add('hidden'); document.getElementById('reject-modal').classList.remove('flex');"
+                class="border border-slate-200 px-4 py-2 rounded-xl text-xs font-semibold hover:bg-slate-50 transition-colors">Cancel</button>
+        <button type="submit" class="bg-rose-600 text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-rose-700 transition-colors shadow-sm">
+          Confirm Rejection
+        </button>
+      </div>
+    </form>
   </div>
 </div>
 {% endblock %}

@@ -52,64 +52,72 @@
       <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Company details</p>
       <div class="grid sm:grid-cols-2 gap-4">
         <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.company_name.label.text }}</label>
-          {{ form.company_name(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="Acme Corp") }}
-          {% for error in form.company_name.errors %}<p class="text-xs text-rose-500 mt-1">{{ error }}</p>{% endfor %}
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.company_name.label.text }} <span class="text-rose-500 font-bold">*</span></label>
+          {{ form.company_name(required=True, class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="Acme Corp") }}
+          {% for error in form.company_name.errors %}<p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>{% endfor %}
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.industry.label.text }}</label>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.industry.label.text }}</label>
           {{ form.industry(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors") }}
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.company_size.label.text }}</label>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.company_size.label.text }}</label>
           {{ form.company_size(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors") }}
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.company_website.label.text }}</label>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.company_website.label.text }} <span class="text-slate-400 font-normal">(optional)</span></label>
           {{ form.company_website(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="https://acme.com") }}
+          {% for error in form.company_website.errors %}<p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>{% endfor %}
         </div>
       </div>
     </div>
 
     <div>
-      <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Contact person</p>
+      <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Contact person & credentials</p>
       <div class="grid sm:grid-cols-2 gap-4">
         <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.contact_name.label.text }}</label>
-          {{ form.contact_name(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="Jordan Lee") }}
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.contact_name.label.text }} <span class="text-rose-500 font-bold">*</span></label>
+          {{ form.contact_name(required=True, class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="Jordan Lee") }}
+          {% for error in form.contact_name.errors %}<p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>{% endfor %}
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.contact_role.label.text }}</label>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.contact_role.label.text }} <span class="text-slate-400 font-normal">(optional)</span></label>
           {{ form.contact_role(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="Talent Acquisition Lead") }}
+          {% for error in form.contact_role.errors %}<p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>{% endfor %}
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.work_email.label.text }}</label>
-          {{ form.work_email(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="jordan@acme.com") }}
-          {% for error in form.work_email.errors %}<p class="text-xs text-rose-500 mt-1">{{ error }}</p>{% endfor %}
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.work_email.label.text }} <span class="text-rose-500 font-bold">*</span></label>
+          {{ form.work_email(required=True, type="email", class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="jordan@acme.com") }}
+          {% for error in form.work_email.errors %}<p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>{% endfor %}
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.phone.label.text }}</label>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.phone.label.text }} <span class="text-slate-400 font-normal">(optional)</span></label>
           {{ form.phone(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="+91 98765 43210") }}
+          {% for error in form.phone.errors %}<p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>{% endfor %}
         </div>
         <div class="sm:col-span-2">
-          <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.password.label.text }}</label>
-          {{ form.password(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="At least 8 characters") }}
-          {% for error in form.password.errors %}<p class="text-xs text-rose-500 mt-1">{{ error }}</p>{% endfor %}
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.password.label.text }} <span class="text-rose-500 font-bold">*</span></label>
+          {{ form.password(required=True, class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="At least 8 characters") }}
+          {% for error in form.password.errors %}<p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>{% endfor %}
         </div>
       </div>
     </div>
 
     <div>
-      <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.hiring_needs.label.text }} <span class="text-slate-400 font-normal normal-case">(optional)</span></label>
+      <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.hiring_needs.label.text }} <span class="text-slate-400 font-normal">(optional)</span></label>
       {{ form.hiring_needs(rows=3, class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors resize-none", placeholder="e.g. 3 backend engineers, 1 product designer") }}
+      {% for error in form.hiring_needs.errors %}<p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>{% endfor %}
     </div>
 
-    <label class="flex items-start gap-2.5 text-sm text-slate-600 cursor-pointer">
-      {{ form.agree_terms(class_="w-4 h-4 mt-0.5 rounded accent-indigo-600 shrink-0") }}
-      <span>I confirm I'm authorised to register on behalf of this company, and agree to the <a href="{{ url_for('main.terms') }}" target="_blank" class="font-semibold text-indigo-600 hover:text-indigo-700">Terms &amp; Conditions</a> and <a href="{{ url_for('main.privacy') }}" target="_blank" class="font-semibold text-indigo-600 hover:text-indigo-700">Privacy Policy</a></span>
-    </label>
+    <div>
+      <label class="flex items-start gap-2.5 text-sm text-slate-600 cursor-pointer">
+        {{ form.agree_terms(required=True, class_="w-4 h-4 mt-0.5 rounded accent-indigo-600 shrink-0") }}
+        <span>I confirm I'm authorised to register on behalf of this company, and agree to the <a href="{{ url_for('main.terms') }}" target="_blank" class="font-semibold text-indigo-600 hover:text-indigo-700">Terms &amp; Conditions</a> and <a href="{{ url_for('main.privacy') }}" target="_blank" class="font-semibold text-indigo-600 hover:text-indigo-700">Privacy Policy</a> <span class="text-rose-500 font-bold">*</span></span>
+      </label>
+      {% for error in form.agree_terms.errors %}<p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>{% endfor %}
+    </div>
 
-    {{ form.submit(class_="w-full bg-ink text-white text-sm font-semibold py-3 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer") }}
+    {{ form.submit(class_="w-full bg-ink text-white text-sm font-semibold py-3 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer shadow-sm") }}
     <p class="text-xs text-slate-400 text-center">Already approved? <a href="{{ url_for('auth.login') }}" class="font-semibold text-indigo-600 hover:text-indigo-700">Sign in here</a>.</p>
   </form>
 </section>

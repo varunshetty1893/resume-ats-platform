@@ -1,4 +1,4 @@
-from datetime import datetime
+from app.utils.time import utcnow
 
 from app import db
 
@@ -25,9 +25,15 @@ class Application(db.Model):
     resume_id = db.Column(db.Integer, db.ForeignKey("resumes.id"), nullable=False)
 
     match_score = db.Column(db.Float, nullable=True)
+    # When match_score was last computed. Set at application-create time and
+    # bumped whenever a targeted re-score runs (job scoring-input edit,
+    # resume content edit). NULL only for rows that predate this column,
+    # which the admin backfill utility (see recruiter.refresh_match_scores)
+    # is meant to fill in.
+    scored_at = db.Column(db.DateTime, nullable=True)
     cover_note = db.Column(db.Text, nullable=True)
     status = db.Column(db.String(20), nullable=False, default=STATUS_APPLIED)
-    applied_at = db.Column(db.DateTime, default=datetime.utcnow)
+    applied_at = db.Column(db.DateTime, default=utcnow)
 
     job = db.relationship("Job", back_populates="applications")
     candidate = db.relationship("User", back_populates="applications", foreign_keys=[candidate_id])

@@ -260,20 +260,65 @@ def extract_education(text: str) -> Dict[str, Any]:
     }
 
 
-def extract_structured_jd(jd_text: str) -> Dict[str, Any]:
-    """Complete extraction pipeline for Job Descriptions, outputting structured concepts."""
+def _canonicalize_skill_list(raw_skills: Optional[List[str]]) -> List[str]:
+    """Map recruiter-typed skill tags onto their canonical taxonomy name where
+    possible (e.g. 'K8s' -> 'Kubernetes'), preserving the original text as a
+    fallback for skills outside the known taxonomy so nothing typed by the
+    recruiter is silently dropped.
+    """
+    out: List[str] = []
+    seen: Set[str] = set()
+    for raw in raw_skills or []:
+        raw = (raw or "").strip()
+        if not raw:
+            continue
+        matched = extract_skills(raw)
+        name = matched[0] if matched else raw
+        key = name.lower()
+        if key not in seen:
+            seen.add(key)
+            out.append(name)
+    return out
+
+
+def extract_structured_jd(
+    jd_text: str,
+    explicit_required_skills: Optional[List[str]] = None,
+    explicit_bonus_skills: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Complete extraction pipeline for Job Descriptions, outputting structured concepts.
+
+    If explicit_required_skills / explicit_bonus_skills are provided (from a
+    recruiter-authored structured skills field on the job posting), those are
+    used as the authoritative required/bonus skill lists instead of inferring
+    skills purely by scanning the free-text description for taxonomy keywords.
+    Free-text NLP extraction is still run to populate all_skills (used for
+    evidence/section analysis) and remains the fallback for jobs that predate
+    the structured skills field.
+    """
     cleaned = clean_text(jd_text)
     sections = segment_jd_sections(cleaned)
 
-    all_skills = extract_skills(cleaned)
-    bonus_text = sections.get("bonus", "")
-    bonus_skills = extract_skills(bonus_text) if bonus_text else []
-    bonus_set = set(bonus_skills)
+    nlp_skills = extract_skills(cleaned)
 
-    required_skills = [s for s in all_skills if s not in bonus_set]
-    if not required_skills and all_skills:
-        required_skills = all_skills
-        bonus_skills = []
+    if explicit_required_skills or explicit_bonus_skills:
+        required_skills = _canonicalize_skill_list(explicit_required_skills)
+        bonus_skills = [
+            s for s in _canonicalize_skill_list(explicit_bonus_skills) if s not in required_skills
+        ]
+        # Keep NLP-detected skills too (as extra evidence / context) without
+        # letting them override the recruiter's explicit required/bonus split.
+        all_skills = list(dict.fromkeys(required_skills + bonus_skills + nlp_skills))
+    else:
+        all_skills = nlp_skills
+        bonus_text = sections.get("bonus", "")
+        bonus_skills = extract_skills(bonus_text) if bonus_text else []
+        bonus_set = set(bonus_skills)
+
+        required_skills = [s for s in all_skills if s not in bonus_set]
+        if not required_skills and all_skills:
+            required_skills = all_skills
+            bonus_skills = []
 
     extracted_languages = [s for s in all_skills if s in LANGUAGES]
     extracted_frameworks = [s for s in all_skills if s in FRAMEWORKS]

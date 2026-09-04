@@ -131,8 +131,18 @@ def _generate_responsibilities_match(jd_data: Dict[str, Any], resume_data: Dict[
     }
 
 
-def score_resume(resume_text: str, jd_text: str) -> Dict[str, Any]:
-    """Compute a comprehensive, explainable ATS match score between a resume and JD."""
+def score_resume(
+    resume_text: str,
+    jd_text: str,
+    explicit_required_skills: Optional[List[str]] = None,
+    explicit_bonus_skills: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Compute a comprehensive, explainable ATS match score between a resume and JD.
+
+    explicit_required_skills / explicit_bonus_skills, when provided, come from a
+    recruiter-authored structured skills field on the job posting and take priority
+    over skills inferred from free-text NLP extraction (see extract_structured_jd).
+    """
     resume_text = (resume_text or "").strip()
     jd_text = (jd_text or "").strip()
 
@@ -167,7 +177,11 @@ def score_resume(resume_text: str, jd_text: str) -> Dict[str, Any]:
         }
 
     # Step 1: Structured Information Extraction
-    jd_data = extract_structured_jd(jd_text)
+    jd_data = extract_structured_jd(
+        jd_text,
+        explicit_required_skills=explicit_required_skills,
+        explicit_bonus_skills=explicit_bonus_skills,
+    )
     resume_data = extract_structured_resume(resume_text)
 
     jd_skills = jd_data["all_skills"]
@@ -409,3 +423,71 @@ def score_resume(resume_text: str, jd_text: str) -> Dict[str, Any]:
         },
         "recommendations": recommendations[:5],
     }
+
+
+def build_jd_text(job) -> str:
+    """Canonical job-description text used for ATS scoring.
+
+    Every caller (application submission, recruiter dashboards, candidate
+    match views, AI shortlisting, job ranking) MUST assemble the JD text this
+    same way. Previously different call sites concatenated a different subset
+    of job.title / job.description / job.responsibilities / job.requirements,
+    so the exact same resume + job pair could silently score differently
+    depending on which page computed it (e.g. the score stored at application
+    time vs. the score shown later on the recruiter's Candidate Intelligence
+    page). Routing every caller through this function removes that class of
+    inconsistency.
+    """
+    return "\n".join(filter(None, [
+        getattr(job, "title", None),
+        getattr(job, "description", None),
+        getattr(job, "responsibilities", None),
+        getattr(job, "requirements", None),
+    ]))
+
+
+def job_skill_lists(job) -> Tuple[List[str], List[str]]:
+    """Return (required_skills, bonus_skills) explicitly tagged on a Job posting.
+
+    These come from the recruiter-authored "Required Skills" / "Preferred Skills"
+    fields on the job form, which are far more reliable than inferring skills by
+    running NLP keyword-matching over free-text prose. Jobs created before this
+    field existed simply have empty strings here, in which case score_resume()
+    transparently falls back to the old NLP-based extraction.
+    """
+    required = [s.strip() for s in (getattr(job, "required_skills_raw", "") or "").split(",") if s.strip()]
+    bonus = [s.strip() for s in (getattr(job, "preferred_skills_raw", "") or "").split(",") if s.strip()]
+    return required, bonus
+
+
+def score_resume_for_job(resume_text: str, job) -> Dict[str, Any]:
+    """Canonical entry point: score a resume against a Job row.
+
+    This is the single function every part of the app should call to score a
+    candidate against a job — it guarantees the JD text and the required/bonus
+    skill lists are built identically everywhere, so the same resume+job pair
+    always produces the same score no matter which page triggered it.
+    """
+    jd_text = build_jd_text(job)
+    required_skills, bonus_skills = job_skill_lists(job)
+    return score_resume(
+        resume_text,
+        jd_text,
+        explicit_required_skills=required_skills,
+        explicit_bonus_skills=bonus_skills,
+    )
+
+
+def structured_jd_for_job(job) -> Dict[str, Any]:
+    """Canonical structured-JD extraction for a Job row (skills/experience/education
+    breakdown, without a resume) — used by pages that show a job's requirements
+    on their own (e.g. Job Overview). Uses the same JD text + explicit skills as
+    score_resume_for_job() so the two stay consistent with each other.
+    """
+    jd_text = build_jd_text(job)
+    required_skills, bonus_skills = job_skill_lists(job)
+    return extract_structured_jd(
+        jd_text,
+        explicit_required_skills=required_skills,
+        explicit_bonus_skills=bonus_skills,
+    )

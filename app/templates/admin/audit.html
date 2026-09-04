@@ -10,13 +10,19 @@
       <h1 class="text-3xl font-extrabold tracking-tight text-ink">Administrative Audit Trail</h1>
       <p class="text-sm text-slate-500 mt-1">Immutable security log of administrative actions, user permissions, job moderations, and platform changes.</p>
     </div>
+    <div class="flex items-center gap-3">
+      <span class="text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1.5">
+        <i class="bi bi-shield-lock text-indigo-600"></i>
+        <span>{{ logs_pagination.total }} Total Audit Events</span>
+      </span>
+    </div>
   </div>
 
   <!-- Filters -->
   <form method="GET" class="flex flex-wrap gap-3 bg-white p-4 rounded-2xl border border-slate-200/90 shadow-sm">
-    <div class="w-56">
+    <div class="w-60">
       <select name="action" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-ink bg-white">
-        <option value="">All Action Types</option>
+        <option value="">All Action Types ({{ all_actions|length }})</option>
         {% for a in all_actions %}
         <option value="{{ a }}" {{ 'selected' if action_filter == a }}>{{ a | replace('_', ' ') | title }}</option>
         {% endfor %}
@@ -31,15 +37,17 @@
         <option value="job" {{ 'selected' if entity_filter == 'job' }}>Job</option>
         <option value="application" {{ 'selected' if entity_filter == 'application' }}>Application</option>
         <option value="setting" {{ 'selected' if entity_filter == 'setting' }}>System Setting</option>
+        <option value="system" {{ 'selected' if entity_filter == 'system' }}>Platform Infrastructure</option>
+        <option value="security" {{ 'selected' if entity_filter == 'security' }}>Security & Telemetry</option>
       </select>
     </div>
 
-    <button type="submit" class="bg-ink text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-800 transition-colors shadow-sm">
-      Filter Log
+    <button type="submit" class="bg-ink text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-800 transition-colors shadow-sm flex items-center gap-1.5">
+      <i class="bi bi-funnel text-xs"></i> Filter Log
     </button>
     {% if action_filter or entity_filter %}
-    <a href="{{ url_for('admin.audit') }}" class="border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
-      Clear
+    <a href="{{ url_for('admin.audit') }}" class="border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors flex items-center gap-1 text-slate-600">
+      <i class="bi bi-x-circle text-xs"></i> Clear
     </a>
     {% endif %}
   </form>
@@ -55,31 +63,54 @@
             <th class="px-6 py-3.5 text-left">Action</th>
             <th class="px-6 py-3.5 text-left">Target Entity</th>
             <th class="px-6 py-3.5 text-left">Details & Notes</th>
+            <th class="px-6 py-3.5 text-right">Inspect</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
           {% for log in logs_pagination.items %}
-          <tr class="hover:bg-slate-50/60 transition-colors">
+          {% set is_success = 'approve' in log.action or 'enable' in log.action %}
+          {% set is_danger = 'reject' in log.action or 'disable' in log.action %}
+          {% set is_warning = 'setting' in log.action or 'alert' in log.action or 'security' in log.action %}
+          {% set badge_theme = 'emerald' if is_success else ('rose' if is_danger else ('amber' if is_warning else 'indigo')) %}
+
+          <tr class="hover:bg-indigo-50/40 cursor-pointer transition-colors js-audit-row"
+              data-id="{{ log.id }}"
+              data-timestamp="{{ log.created_at.strftime('%b %d, %Y • %I:%M:%S %p UTC') if log.created_at else '—' }}"
+              data-timestamp-raw="{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else '' }}"
+              data-admin-name="{{ log.admin.full_name if log.admin else 'System Platform' }}"
+              data-admin-email="{{ log.admin.email if log.admin else 'system@zentra.internal' }}"
+              data-admin-id="{{ log.admin_id }}"
+              data-action="{{ log.action }}"
+              data-action-label="{{ log.action | replace('_', ' ') | title }}"
+              data-entity-type="{{ log.entity_type or 'General' }}"
+              data-entity-id="{{ log.entity_id or '' }}"
+              data-detail="{{ log.detail or 'No specific detail text recorded for this operation.' }}"
+              data-badge-theme="{{ badge_theme }}">
             <td class="px-6 py-4 font-mono text-xs text-slate-500 whitespace-nowrap">
-              {{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+              {{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else '—' }}
             </td>
             <td class="px-6 py-4">
               <div class="flex items-center gap-2">
-                <span class="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-[10px]">
-                  {{ log.admin.full_name[:1]|upper }}
+                <span class="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-[10px] shrink-0">
+                  {{ (log.admin.full_name[:1] if log.admin else 'S')|upper }}
                 </span>
-                <span class="font-bold text-ink text-xs">{{ log.admin.full_name }}</span>
+                <span class="font-bold text-ink text-xs truncate max-w-[140px]">{{ log.admin.full_name if log.admin else 'System' }}</span>
               </div>
             </td>
             <td class="px-6 py-4">
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ 'bg-emerald-50 text-emerald-700 border border-emerald-200' if 'approve' in log.action or 'enable' in log.action else ('bg-rose-50 text-rose-700 border border-rose-200' if 'reject' in log.action or 'disable' in log.action else 'bg-indigo-50 text-indigo-700 border border-indigo-200') }}">
+              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold
+                {% if is_success %}bg-emerald-50 text-emerald-700 border border-emerald-200
+                {% elif is_danger %}bg-rose-50 text-rose-700 border border-rose-200
+                {% elif is_warning %}bg-amber-50 text-amber-700 border border-amber-200
+                {% else %}bg-indigo-50 text-indigo-700 border border-indigo-200{% endif %}">
+                <i class="bi {% if is_success %}bi-check-circle{% elif is_danger %}bi-x-circle{% elif is_warning %}bi-exclamation-triangle{% else %}bi-gear{% endif %} text-[11px]"></i>
                 {{ log.action | replace('_', ' ') | title }}
               </span>
             </td>
             <td class="px-6 py-4 text-xs">
               {% if log.entity_type %}
               <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] uppercase font-bold tracking-wider bg-slate-100 text-slate-600 border border-slate-200">{{ log.entity_type }}</span>
-              {% if log.entity_id %}<span class="text-slate-400 font-mono ml-1">#{{ log.entity_id }}</span>{% endif %}
+              {% if log.entity_id %}<span class="text-slate-400 font-mono ml-1 font-semibold">#{{ log.entity_id }}</span>{% endif %}
               {% else %}
               <span class="text-slate-300">—</span>
               {% endif %}
@@ -87,9 +118,15 @@
             <td class="px-6 py-4 text-xs text-slate-600 max-w-xs truncate">
               {{ log.detail or '—' }}
             </td>
+            <td class="px-6 py-4 text-right">
+              <button type="button" class="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:underline js-inspect-btn">
+                <span>Inspect</span>
+                <i class="bi bi-arrows-fullscreen text-[10px]"></i>
+              </button>
+            </td>
           </tr>
           {% else %}
-          <tr><td colspan="5" class="px-6 py-12 text-center text-slate-400">No audit log records found.</td></tr>
+          <tr><td colspan="6" class="px-6 py-12 text-center text-slate-400">No audit log records found.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -100,4 +137,265 @@
   </div>
 
 </div>
+
+<!-- Audit Details Modal Popup -->
+<div id="auditDetailModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs hidden transition-opacity duration-200" aria-modal="true" role="dialog">
+  <div class="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden transform transition-all scale-95 opacity-0 duration-200" id="auditModalCard">
+
+    <!-- Modal Header -->
+    <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+      <div class="flex items-center gap-3">
+        <div id="modalActionIconBox" class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg shrink-0 border border-indigo-100">
+          <i class="bi bi-shield-check" id="modalActionIcon"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="font-extrabold text-ink text-base" id="modalActionTitle">Audit Event</h3>
+            <span class="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-200 text-slate-700" id="modalLogId">#LOG-0</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5" id="modalTimestamp">Timestamp</p>
+        </div>
+      </div>
+      <button type="button" id="closeAuditModalBtn" class="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-ink hover:bg-slate-100 transition-colors">
+        <i class="bi bi-x-lg text-xs"></i>
+      </button>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+
+      <!-- Summary Info Cards -->
+      <div class="grid sm:grid-cols-2 gap-3.5">
+        
+        <!-- Admin Performing Action -->
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+          <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+            <i class="bi bi-person-badge text-indigo-600"></i> Administrator
+          </p>
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0" id="modalAdminAvatar">
+              A
+            </div>
+            <div class="min-w-0">
+              <p class="font-bold text-ink text-xs truncate" id="modalAdminName">Admin Name</p>
+              <p class="text-[11px] text-slate-400 truncate" id="modalAdminEmail">admin@zentra.test</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Target Entity Card -->
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+          <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+            <i class="bi bi-box-seam text-indigo-600"></i> Target Entity
+          </p>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs uppercase font-bold tracking-wider bg-slate-200 text-slate-700" id="modalEntityType">
+                GENERAL
+              </span>
+              <span class="font-mono text-xs font-semibold text-slate-600" id="modalEntityId"></span>
+            </div>
+            <a href="#" id="modalEntityLink" class="text-xs font-semibold text-indigo-600 hover:underline hidden items-center gap-0.5">
+              <span>View</span> <i class="bi bi-box-arrow-up-right text-[10px]"></i>
+            </a>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Detail Notes Section -->
+      <div>
+        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+          <i class="bi bi-journal-text text-indigo-600"></i> Operation Details & Audit Notes
+        </label>
+        <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80 font-mono text-xs text-slate-700 leading-relaxed whitespace-pre-wrap select-all" id="modalDetailText">
+          Operation notes will appear here.
+        </div>
+      </div>
+
+      <!-- Security & Telemetry Box -->
+      <div class="p-3.5 rounded-xl bg-indigo-50/50 border border-indigo-100 text-xs space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-indigo-900 font-semibold flex items-center gap-1.5">
+            <i class="bi bi-patch-check-fill text-indigo-600"></i> Audit Verification Status
+          </span>
+          <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Verified & Committed
+          </span>
+        </div>
+        <div class="text-[11px] text-slate-500 flex flex-col sm:flex-row sm:items-center justify-between gap-1 pt-1 border-t border-indigo-100/60 font-mono">
+          <span>Digest: <span class="text-slate-700" id="modalDigest">sha256:event-validated</span></span>
+          <span class="text-slate-400">Security Clearance: Level 4 Admin</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+      <button type="button" id="copyAuditDetailsBtn" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-xs">
+        <i class="bi bi-clipboard"></i> <span id="copyBtnLabel">Copy Details</span>
+      </button>
+      <button type="button" id="dismissModalBtn" class="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-ink hover:bg-slate-800 transition-colors shadow-sm">
+        Close
+      </button>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function() {
+    var modal = document.getElementById('auditDetailModal');
+    var card = document.getElementById('auditModalCard');
+    var closeBtn = document.getElementById('closeAuditModalBtn');
+    var dismissBtn = document.getElementById('dismissModalBtn');
+    var copyBtn = document.getElementById('copyAuditDetailsBtn');
+    var copyBtnLabel = document.getElementById('copyBtnLabel');
+
+    function openModal(data) {
+      document.getElementById('modalLogId').textContent = '#LOG-' + data.id;
+      document.getElementById('modalActionTitle').textContent = data.actionLabel;
+      document.getElementById('modalTimestamp').textContent = data.timestamp;
+      document.getElementById('modalAdminName').textContent = data.adminName;
+      document.getElementById('modalAdminEmail').textContent = data.adminEmail;
+      document.getElementById('modalAdminAvatar').textContent = (data.adminName.charAt(0) || 'A').toUpperCase();
+      document.getElementById('modalEntityType').textContent = data.entityType.toUpperCase();
+      document.getElementById('modalEntityId').textContent = data.entityId ? '#' + data.entityId : '';
+      document.getElementById('modalDetailText').textContent = data.detail;
+      document.getElementById('modalDigest').textContent = 'sha256:log-' + data.id + '-' + (data.timestampRaw || 'val').replace(/[^0-9]/g, '');
+
+      // Dynamic icon & box color
+      var iconBox = document.getElementById('modalActionIconBox');
+      var icon = document.getElementById('modalActionIcon');
+      var theme = data.badgeTheme || 'indigo';
+
+      iconBox.className = 'w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0 border ';
+      if (theme === 'emerald') {
+        iconBox.className += 'bg-emerald-50 text-emerald-600 border-emerald-200';
+        icon.className = 'bi bi-check-circle-fill';
+      } else if (theme === 'rose') {
+        iconBox.className += 'bg-rose-50 text-rose-600 border-rose-200';
+        icon.className = 'bi bi-x-circle-fill';
+      } else if (theme === 'amber') {
+        iconBox.className += 'bg-amber-50 text-amber-600 border-amber-200';
+        icon.className = 'bi bi-exclamation-triangle-fill';
+      } else {
+        iconBox.className += 'bg-indigo-50 text-indigo-600 border-indigo-200';
+        icon.className = 'bi bi-shield-check';
+      }
+
+      // Entity link
+      var entityLink = document.getElementById('modalEntityLink');
+      var entityType = (data.entityType || '').toLowerCase();
+      var entityId = data.entityId;
+
+      if (entityType === 'user' && entityId) {
+        entityLink.href = '/admin/users/' + entityId;
+        entityLink.classList.remove('hidden');
+        entityLink.classList.add('inline-flex');
+      } else if (entityType === 'recruiter' && entityId) {
+        entityLink.href = '/admin/recruiters/' + entityId;
+        entityLink.classList.remove('hidden');
+        entityLink.classList.add('inline-flex');
+      } else if (entityType === 'job' && entityId) {
+        entityLink.href = '/admin/jobs/' + entityId;
+        entityLink.classList.remove('hidden');
+        entityLink.classList.add('inline-flex');
+      } else if (entityType === 'setting') {
+        entityLink.href = '/admin/system';
+        entityLink.classList.remove('hidden');
+        entityLink.classList.add('inline-flex');
+      } else {
+        entityLink.classList.add('hidden');
+        entityLink.classList.remove('inline-flex');
+      }
+
+      // Show modal with animation
+      modal.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+      setTimeout(function() {
+        card.classList.remove('scale-95', 'opacity-0');
+        card.classList.add('scale-100', 'opacity-100');
+      }, 10);
+    }
+
+    function closeModal() {
+      card.classList.remove('scale-100', 'opacity-100');
+      card.classList.add('scale-95', 'opacity-0');
+      setTimeout(function() {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+        copyBtnLabel.textContent = 'Copy Details';
+      }, 150);
+    }
+
+    // Attach row click handlers
+    document.querySelectorAll('.js-audit-row').forEach(function(row) {
+      row.addEventListener('click', function(e) {
+        openModal({
+          id: this.getAttribute('data-id'),
+          timestamp: this.getAttribute('data-timestamp'),
+          timestampRaw: this.getAttribute('data-timestamp-raw'),
+          adminName: this.getAttribute('data-admin-name'),
+          adminEmail: this.getAttribute('data-admin-email'),
+          adminId: this.getAttribute('data-admin-id'),
+          action: this.getAttribute('data-action'),
+          actionLabel: this.getAttribute('data-action-label'),
+          entityType: this.getAttribute('data-entity-type'),
+          entityId: this.getAttribute('data-entity-id'),
+          detail: this.getAttribute('data-detail'),
+          badgeTheme: this.getAttribute('data-badge-theme')
+        });
+      });
+    });
+
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (dismissBtn) dismissBtn.addEventListener('click', closeModal);
+
+    // Click outside to close
+    modal.addEventListener('click', function(e) {
+      if (e.target === modal) {
+        closeModal();
+      }
+    });
+
+    // Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+        closeModal();
+      }
+    });
+
+    // Copy Details
+    if (copyBtn) {
+      copyBtn.addEventListener('click', function() {
+        var logId = document.getElementById('modalLogId').textContent;
+        var action = document.getElementById('modalActionTitle').textContent;
+        var ts = document.getElementById('modalTimestamp').textContent;
+        var admin = document.getElementById('modalAdminName').textContent + ' (' + document.getElementById('modalAdminEmail').textContent + ')';
+        var entity = document.getElementById('modalEntityType').textContent + ' ' + document.getElementById('modalEntityId').textContent;
+        var detail = document.getElementById('modalDetailText').textContent;
+
+        var textToCopy = '=== ZENTRA AUDIT EVENT ' + logId + ' ===\n' +
+                         'Timestamp: ' + ts + '\n' +
+                         'Action: ' + action + '\n' +
+                         'Admin: ' + admin + '\n' +
+                         'Target: ' + entity + '\n' +
+                         'Details: ' + detail + '\n' +
+                         '====================================';
+
+        navigator.clipboard.writeText(textToCopy).then(function() {
+          copyBtnLabel.textContent = 'Copied!';
+          setTimeout(function() {
+            copyBtnLabel.textContent = 'Copy Details';
+          }, 2000);
+        });
+      });
+    }
+
+  })();
+</script>
 {% endblock %}

@@ -112,7 +112,7 @@
               {% for app in user.applications | sort(attribute='applied_at', reverse=True) %}
               <tr class="hover:bg-slate-50/60 transition-colors">
                 <td class="px-6 py-3.5 font-semibold text-ink">
-                  <a href="{{ url_for('admin.application_detail', app_id=app.id) }}" class="hover:text-indigo-600">
+                  <a href="{{ url_for('admin.job_detail', job_id=app.job_id) }}" class="hover:text-indigo-600">
                     {{ app.job.title }}
                   </a>
                 </td>

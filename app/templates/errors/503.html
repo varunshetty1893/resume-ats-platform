@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Zentra — Scheduled Maintenance{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto px-6 py-24 text-center fade-up">
+  <span class="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center mx-auto mb-6 text-2xl font-bold">
+    <i class="bi bi-tools"></i>
+  </span>
+  <h1 class="text-3xl font-extrabold text-ink tracking-tight">Scheduled Platform Maintenance</h1>
+  <p class="text-slate-500 mt-3 text-sm leading-relaxed">
+    Zentra is currently undergoing scheduled platform upgrades and routine database optimization. We will be back online shortly.
+  </p>
+  <div class="mt-8 flex items-center justify-center gap-3">
+    <a href="{{ url_for('auth.login') }}" class="bg-ink text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-slate-800 transition-colors shadow-sm">
+      Administrator Access
+    </a>
+  </div>
+</div>
+{% endblock %}

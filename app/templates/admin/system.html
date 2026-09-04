@@ -81,5 +81,23 @@
     </div>
   </div>
 
+  <!-- Maintenance actions -->
+  <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm space-y-4">
+    <div>
+      <h3 class="font-bold text-ink text-base">Maintenance</h3>
+      <p class="text-xs text-slate-500 mt-0.5">
+        Match scores are kept fresh automatically as candidates apply and recruiters edit jobs.
+        Only use this if scores look stale or drifted (e.g. after a bulk data import).
+      </p>
+    </div>
+    <form method="POST" action="{{ url_for('admin.backfill_match_scores') }}"
+          onsubmit="return confirm('Recompute match_score for every application on the platform? This may take a moment on a large dataset.');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="border border-slate-200 text-ink px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors">
+        <i class="bi bi-arrow-repeat"></i> Backfill match scores
+      </button>
+    </form>
+  </div>
+
 </div>
 {% endblock %}

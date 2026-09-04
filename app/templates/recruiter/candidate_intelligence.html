@@ -53,7 +53,7 @@
             <span><i class="bi bi-geo-alt mr-1.5 text-slate-500"></i>{{ candidate.location or 'Remote / Global' }}</span>
             {% if candidate.linkedin_url %}
             <a href="{{ candidate.linkedin_url }}" target="_blank" class="text-indigo-600 hover:underline inline-flex items-center gap-1">
-              <i class="bi bi-linkedin"></i> LinkedIn
+              <i class="bi bi-link-45deg"></i> Public Profile
             </a>
             {% endif %}
             {% if candidate.github_url %}
@@ -70,18 +70,25 @@
         </div>
       </div>
 
-      <!-- Job Context Selector (if evaluating against a specific job) -->
+      <!-- Job Context: restricted to the job(s) this candidate actually applied to -->
       <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 lg:min-w-[280px] shrink-0">
-        <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Evaluating Against Job:</label>
+        <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Applied For:</label>
+        {% if applications|length > 1 %}
         <form method="GET" action="{{ url_for('recruiter.candidate_intelligence', candidate_id=candidate.id) }}">
           <select name="job_id" onchange="this.form.submit()" class="w-full bg-white border border-slate-200 text-xs font-bold rounded-xl px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all shadow-sm">
-            {% for j in recruiter_jobs %}
-            <option value="{{ j.id }}" {{ 'selected' if target_job and target_job.id == j.id else '' }}>
-              {{ j.title }}
+            {% for a in applications %}
+            <option value="{{ a.job_id }}" {{ 'selected' if target_job and target_job.id == a.job_id else '' }}>
+              {{ a.job.title }}
             </option>
             {% endfor %}
           </select>
+          <p class="text-[10px] text-slate-400 mt-1.5">This candidate applied to {{ applications|length }} of your jobs.</p>
         </form>
+        {% elif target_job %}
+        <p class="text-sm font-bold text-ink px-3 py-2">{{ target_job.title }}</p>
+        {% else %}
+        <p class="text-xs text-slate-500 px-3 py-2 italic">Hasn't applied to any of your jobs</p>
+        {% endif %}
       </div>
 
     </div>
@@ -155,7 +162,7 @@
           <div class="flex items-center gap-4 bg-gradient-to-br from-indigo-50 to-lavender/70 border border-indigo-100 p-4 rounded-2xl shrink-0">
             <div class="text-center">
               <span class="text-3xl font-black text-indigo-700 leading-none">{{ match_data.score }}%</span>
-              <p class="text-[10px] font-bold text-indigo-900 uppercase tracking-wider mt-1">{{ match_data.tier_label }}</p>
+              <p class="text-[10px] font-bold text-indigo-900 uppercase tracking-wider mt-1">ATS Score</p>
             </div>
           </div>
         </div>

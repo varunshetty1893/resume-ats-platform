@@ -1,4 +1,5 @@
-from datetime import datetime
+import hashlib
+from app.utils.time import utcnow
 
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -26,7 +27,7 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), nullable=False, default=ROLE_CANDIDATE)
     is_active_account = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     # Candidate-only, optional fields
     headline = db.Column(db.String(150), nullable=True)
@@ -72,12 +73,35 @@ class User(UserMixin, db.Model):
     )
     saved_jobs = db.relationship("SavedJob", back_populates="candidate", cascade="all, delete-orphan")
     notifications = db.relationship("Notification", back_populates="candidate", cascade="all, delete-orphan", order_by="Notification.created_at.desc()")
+    support_tickets = db.relationship("SupportTicket", back_populates="user", cascade="all, delete-orphan", order_by="SupportTicket.created_at.desc()")
 
     def set_password(self, raw_password):
         self.password_hash = generate_password_hash(raw_password)
 
     def check_password(self, raw_password):
         return check_password_hash(self.password_hash, raw_password)
+
+    @property
+    def password_stamp(self):
+        """Short fingerprint of the current password_hash.
+
+        Embedded in the Flask-Login session/remember-cookie identifier (see
+        get_id()) so that changing a password invalidates every session and
+        "remember me" cookie issued before the change, not just future
+        logins with the old password. Derived from password_hash instead of
+        a separate counter/column so this needs no schema change and can
+        never drift out of sync with the actual password.
+        """
+        return hashlib.sha256(self.password_hash.encode()).hexdigest()[:16]
+
+    def get_id(self):
+        """Flask-Login identifier: "<user id>|<password stamp>".
+
+        app.load_user() splits this back apart and rejects the session if
+        the stamp doesn't match the user's *current* password_hash — see
+        password_stamp above.
+        """
+        return f"{self.id}|{self.password_stamp}"
 
     @property
     def is_active(self):

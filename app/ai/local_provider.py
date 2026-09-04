@@ -48,6 +48,35 @@ class LocalAIProvider(BaseAIProvider):
         )
         return summary
 
+    def retouch_bio(
+        self,
+        raw_bio: str,
+        headline: str = "",
+        skills: Optional[List[str]] = None,
+        target_role: str = "",
+    ) -> Optional[str]:
+        role_label = target_role.strip() or headline.strip() or "Driven Professional"
+        skills_list = [s.strip() for s in (skills or []) if s.strip() and len(s.strip()) > 1]
+        skills_str = ", ".join(skills_list[:5]) if skills_list else "modern industry tools and domain methodologies"
+
+        # Extract legitimate words from raw_bio, ignoring keyboard mash patterns
+        cleaned_words = [w for w in re.findall(r"\b[A-Za-z0-9+#.-]+\b", raw_bio or "") if not re.match(r"^(.)\1{3,}$", w)]
+        key_themes = " ".join(cleaned_words[:25]) if len(cleaned_words) > 3 else ""
+
+        if key_themes:
+            bio = (
+                f"Passionate {role_label} with hands-on experience in {skills_str}. "
+                f"Dedicated to {key_themes.lower() if not key_themes.isupper() else key_themes} while building scalable, high-performance solutions. "
+                f"Seeking impactful opportunities to apply continuous learning and drive measurable team success."
+            )
+        else:
+            bio = (
+                f"Dedicated and results-oriented {role_label} specializing in {skills_str}. "
+                f"Experienced in delivering reliable, high-quality projects, solving complex challenges, and collaborating effectively across modern workflows. "
+                f"Eager to contribute technical acumen and continuous improvement to forward-thinking organizations."
+            )
+        return bio
+
     def explain_match(
         self,
         resume_text: str,

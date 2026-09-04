@@ -90,6 +90,31 @@ class AIService:
         fallback = self.local.generate_summary(headline, skills, experience_snippets, target_role=target_role)
         return fallback or "", "local"
 
+    def retouch_bio(
+        self,
+        raw_bio: str,
+        headline: str = "",
+        skills: Optional[List[str]] = None,
+        target_role: str = "",
+    ) -> Tuple[str, str]:
+        """Rewrites and elevates a candidate's rough bio into a polished 2-3 sentence summary.
+        
+        Cascades: Gemini -> Groq -> Local Provider.
+        Returns (retouched_text, provider_used).
+        """
+        chain = self._get_provider_chain()
+        for provider in chain:
+            try:
+                res = provider.retouch_bio(raw_bio, headline=headline, skills=skills, target_role=target_role)
+                if res and res.strip():
+                    logger.info(f"AI retouch_bio served by: {provider.name}")
+                    return res.strip(), provider.name
+            except Exception as e:
+                logger.warning(f"Provider {provider.name} failed on retouch_bio ({type(e).__name__}); cascading.")
+
+        fallback = self.local.retouch_bio(raw_bio, headline=headline, skills=skills, target_role=target_role)
+        return fallback or raw_bio, "local"
+
     def explain_match(
         self,
         resume_text: str,

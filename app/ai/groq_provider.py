@@ -144,6 +144,39 @@ class GroqAIProvider(BaseAIProvider):
         result = self._call_groq(messages, temperature=0.3)
         return result.strip() if result else None
 
+    def retouch_bio(
+        self,
+        raw_bio: str,
+        headline: str = "",
+        skills: Optional[List[str]] = None,
+        target_role: str = "",
+    ) -> Optional[str]:
+        skills_str = ", ".join(skills[:8]) if skills else ""
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are an expert ATS Resume and Career Profile Coach. The candidate provided rough, unpolished text "
+                    "for their 'About You' (Bio) section. Rewrite, refine, and elevate their draft into a polished, compelling, "
+                    "and professional 2-3 sentence summary suitable for job applications and recruiter visibility. "
+                    "Focus on their job domain, practical strengths, and skills. Keep it authentic, active, and impactful without generic fluff. "
+                    "Output ONLY the retouched bio text without commentary, quotes, or markdown formatting."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Candidate Headline: {headline or 'Professional'}\n"
+                    f"Target Role: {target_role or headline or 'Relevant Role'}\n"
+                    f"Core Skills: {skills_str or 'Technical & problem-solving competencies'}\n"
+                    f"Draft Bio / Notes from candidate: {raw_bio}\n\n"
+                    "Enhanced Professional Bio (2-3 sentences):"
+                ),
+            }
+        ]
+        result = self._call_groq(messages, temperature=0.35)
+        return result.strip().strip('"') if result else None
+
     def explain_match(
         self,
         resume_text: str,

@@ -22,7 +22,11 @@ class Config:
     UPLOAD_FOLDER = os.environ.get(
         "UPLOAD_FOLDER", os.path.join(basedir, "app", "static", "uploads")
     )
-    ALLOWED_RESUME_EXTENSIONS = {"pdf", "docx", "doc"}
+    # .doc (legacy OLE2 binary) intentionally excluded — resume_parser has no
+    # working extractor for it (python-docx only reads the OOXML/zip
+    # format used by .docx), so accepting it here would just crash on
+    # extraction later. See app/utils/file_security.py.
+    ALLOWED_RESUME_EXTENSIONS = {"pdf", "docx"}
     ALLOWED_AVATAR_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
     MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH", 5 * 1024 * 1024))  # 5MB
 

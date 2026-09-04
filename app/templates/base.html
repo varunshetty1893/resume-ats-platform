@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>{% block title %}Zentra{% endblock %}</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230B0F19'/><text x='16' y='23' font-family='Inter,system-ui,sans-serif' font-size='20' font-weight='800' fill='white' text-anchor='middle'>Z</text></svg>">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
@@ -23,6 +24,26 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
 <style>
   body { font-family: 'Inter', system-ui, sans-serif; }
+  /* Sleek Minimalist Scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(99, 102, 241, 0.25) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9999px;
+    transition: background 0.2s ease;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #818cf8;
+  }
   .grid-bg {
     background-image: linear-gradient(#E1E4FF 1px, transparent 1px), linear-gradient(90deg, #E1E4FF 1px, transparent 1px);
     background-size: 40px 40px;
@@ -36,7 +57,7 @@
 {% block extra_head %}{% endblock %}
 <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
-<body class="bg-white text-ink antialiased">
+<body class="bg-white text-ink antialiased min-h-screen flex flex-col">
 
 {% block nav %}
 <nav class="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-slate-100">
@@ -62,11 +83,15 @@
       <a href="{{ url_for('admin.dashboard') }}" class="{{ 'text-ink font-semibold' if active_nav == 'dashboard' else 'hover:text-ink transition-colors' }}">Dashboard</a>
       <a href="{{ url_for('admin.users') }}" class="{{ 'text-ink font-semibold' if active_nav == 'users' else 'hover:text-ink transition-colors' }}">Users</a>
       <a href="{{ url_for('admin.recruiters') }}" class="{{ 'text-ink font-semibold' if active_nav == 'recruiters' else 'hover:text-ink transition-colors' }}">Recruiters</a>
-      <a href="{{ url_for('admin.companies') }}" class="{{ 'text-ink font-semibold' if active_nav == 'companies' else 'hover:text-ink transition-colors' }}">Companies</a>
       <a href="{{ url_for('admin.jobs') }}" class="{{ 'text-ink font-semibold' if active_nav == 'jobs' else 'hover:text-ink transition-colors' }}">Jobs</a>
-      <a href="{{ url_for('admin.applications') }}" class="{{ 'text-ink font-semibold' if active_nav == 'applications' else 'hover:text-ink transition-colors' }}">Applications</a>
       <a href="{{ url_for('admin.reports') }}" class="{{ 'text-ink font-semibold' if active_nav == 'reports' else 'hover:text-ink transition-colors' }}">Reports</a>
       <a href="{{ url_for('admin.audit') }}" class="{{ 'text-ink font-semibold' if active_nav == 'audit' else 'hover:text-ink transition-colors' }}">Audit</a>
+      <a href="{{ url_for('admin.support_tickets') }}" class="{{ 'text-ink font-semibold' if active_nav == 'support' else 'hover:text-ink transition-colors' }} inline-flex items-center gap-1.5">
+        Support
+        {% if open_ticket_count and open_ticket_count > 0 %}
+        <span class="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold bg-indigo-600 text-white rounded-full leading-none">{{ open_ticket_count }}</span>
+        {% endif %}
+      </a>
       <a href="{{ url_for('admin.system') }}" class="{{ 'text-ink font-semibold' if active_nav == 'system' else 'hover:text-ink transition-colors' }}">System</a>
       {% else %}
       <a href="{{ url_for('main.landing') }}" class="{{ 'text-ink font-semibold' if active_nav == 'home' else 'hover:text-ink transition-colors' }}">Home</a>
@@ -130,6 +155,10 @@
                class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:bg-lavender hover:text-ink transition-colors {{ 'font-semibold text-indigo-600' if active_nav == 'settings' else '' }}">
               <i class="bi bi-gear"></i>Settings
             </a>
+            <a href="{{ url_for('main.support') }}"
+               class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:bg-lavender hover:text-ink transition-colors {{ 'font-semibold text-indigo-600' if active_nav == 'support' else '' }}">
+              <i class="bi bi-question-circle"></i>Help & Support
+            </a>
             {% elif current_user.is_candidate %}
             <a href="{{ url_for('candidate.dashboard') }}"
                class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:bg-lavender transition-colors">
@@ -156,18 +185,17 @@
             <a href="{{ url_for('candidate.privacy_settings') }}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:bg-lavender transition-colors">
               <i class="bi bi-shield-lock"></i>Privacy & visibility
             </a>
+            <a href="{{ url_for('main.support') }}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:bg-lavender transition-colors {{ 'font-semibold text-indigo-600' if active_nav == 'support' else '' }}">
+              <i class="bi bi-question-circle"></i>Help & Support
+            </a>
             {% elif current_user.is_admin %}
-            <a href="{{ url_for('admin.dashboard') }}"
-               class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:bg-lavender hover:text-ink transition-colors {{ 'font-semibold text-indigo-600' if active_nav == 'dashboard' else '' }}">
-              <i class="bi bi-grid"></i>Dashboard
+            <a href="{{ url_for('admin.support_tickets') }}"
+               class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:bg-lavender hover:text-ink transition-colors {{ 'font-semibold text-indigo-600' if active_nav == 'support' else '' }}">
+              <i class="bi bi-ticket-detailed"></i>Support Tickets
             </a>
             <a href="{{ url_for('admin.notifications') }}"
                class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:bg-lavender hover:text-ink transition-colors {{ 'font-semibold text-indigo-600' if active_nav == 'notifications' else '' }}">
               <i class="bi bi-bell"></i>Notifications
-            </a>
-            <a href="{{ url_for('admin.system') }}"
-               class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:bg-lavender hover:text-ink transition-colors {{ 'font-semibold text-indigo-600' if active_nav == 'system' else '' }}">
-              <i class="bi bi-sliders"></i>System Settings
             </a>
             <a href="{{ url_for('admin.profile') }}"
                class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:bg-lavender hover:text-ink transition-colors {{ 'font-semibold text-indigo-600' if active_nav == 'profile' else '' }}">
@@ -207,10 +235,28 @@
   {% endif %}
 {% endwith %}
 
-{% block content %}{% endblock %}
+<main class="flex-1">
+  {% block content %}{% endblock %}
+</main>
 
 {% block footer %}
-<footer class="border-t border-slate-100">
+{% if current_user.is_authenticated and current_user.is_admin %}
+<footer class="mt-auto border-t border-slate-200 bg-slate-50/70 py-6">
+  <div class="max-w-7xl mx-auto px-6 lg:px-10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+    <div class="flex items-center gap-2">
+      <span class="font-bold text-ink">Zentra Admin</span>
+      <span>&copy; 2026 Zentra. All rights reserved.</span>
+    </div>
+    <div class="flex items-center gap-6">
+      <a href="{{ url_for('admin.support_tickets') }}" class="hover:text-ink transition-colors font-medium">Support Tickets</a>
+      <a href="{{ url_for('main.about') }}" class="hover:text-ink transition-colors">Help</a>
+      <a href="{{ url_for('main.privacy') }}" class="hover:text-ink transition-colors">Privacy</a>
+      <a href="{{ url_for('main.terms') }}" class="hover:text-ink transition-colors">Terms</a>
+    </div>
+  </div>
+</footer>
+{% else %}
+<footer class="mt-auto border-t border-slate-100">
   <div class="max-w-7xl mx-auto px-6 lg:px-10 py-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-10">
     <div>
       <a href="{{ url_for('main.landing') }}" class="flex items-center gap-2.5 mb-3">
@@ -224,28 +270,30 @@
       <ul class="space-y-2 text-sm text-slate-500">
         <li><a href="{{ url_for('candidate.resume_ai') }}" class="hover:text-ink transition-colors">AI Resume Builder</a></li>
         <li><a href="{{ url_for('main.jobs') }}" class="hover:text-ink transition-colors">Job Search</a></li>
-        <li><a href="#" class="hover:text-ink transition-colors">Skill Assessments</a></li>
+        <li><a href="{{ url_for('main.about') }}" class="hover:text-ink transition-colors">Skill Assessments</a></li>
       </ul>
     </div>
     <div>
       <p class="font-semibold text-sm mb-3">Company</p>
       <ul class="space-y-2 text-sm text-slate-500">
         <li><a href="{{ url_for('main.about') }}" class="hover:text-ink transition-colors">About Us</a></li>
-        <li><a href="#" class="hover:text-ink transition-colors">Careers</a></li>
+        <li><a href="{{ url_for('main.support') }}" class="hover:text-ink transition-colors">Help & Support</a></li>
         <li><a href="{{ url_for('main.privacy') }}" class="hover:text-ink transition-colors">Privacy Policy</a></li>
+        <li><a href="{{ url_for('main.terms') }}" class="hover:text-ink transition-colors">Terms of Service</a></li>
       </ul>
     </div>
     <div>
       <p class="font-semibold text-sm mb-3">Connect</p>
       <div class="flex gap-4 text-slate-500 text-lg">
-        <a href="#" class="hover:text-ink transition-colors"><i class="bi bi-globe"></i></a>
-        <a href="#" class="hover:text-ink transition-colors"><i class="bi bi-envelope"></i></a>
-        <a href="#" class="hover:text-ink transition-colors"><i class="bi bi-share"></i></a>
+        <a href="{{ url_for('main.landing') }}" class="hover:text-ink transition-colors"><i class="bi bi-globe"></i></a>
+        <a href="{{ url_for('main.about') }}" class="hover:text-ink transition-colors"><i class="bi bi-envelope"></i></a>
+        <a href="{{ url_for('main.about') }}" class="hover:text-ink transition-colors"><i class="bi bi-share"></i></a>
       </div>
     </div>
   </div>
   <div class="border-t border-slate-100 py-6 text-center text-xs text-slate-400">© 2026 Zentra. Powered by intelligence.</div>
 </footer>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}{% endblock %}
@@ -261,6 +309,39 @@
     if (!menu.contains(e.target) && !btn.contains(e.target)) {
       menu.classList.add('hidden');
     }
+  });
+
+  // Job status dropdown (used on Job Workspaces + Job Overview)
+  function closeAllStatusDropdowns(except) {
+    document.querySelectorAll('[data-status-dropdown]').forEach(function (root) {
+      if (root.id === except) return;
+      var panel = root.querySelector('[data-dd-panel]');
+      var chevron = root.querySelector('[data-dd-chevron]');
+      if (panel) panel.classList.add('hidden');
+      if (chevron) chevron.style.transform = '';
+      var btn = root.querySelector('button[aria-expanded]');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    });
+  }
+  function toggleStatusDropdown(id) {
+    var root = document.getElementById(id);
+    if (!root) return;
+    var panel = root.querySelector('[data-dd-panel]');
+    var chevron = root.querySelector('[data-dd-chevron]');
+    var btn = root.querySelector('button[aria-expanded]');
+    var willOpen = panel.classList.contains('hidden');
+    closeAllStatusDropdowns(id);
+    panel.classList.toggle('hidden', !willOpen);
+    if (chevron) chevron.style.transform = willOpen ? 'rotate(180deg)' : '';
+    if (btn) btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+  }
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('[data-status-dropdown]')) {
+      closeAllStatusDropdowns(null);
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeAllStatusDropdowns(null);
   });
 
   // Auto-dismiss toasts after 4s, with a quick fade+slide out

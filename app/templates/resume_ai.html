@@ -85,30 +85,9 @@
 
         <!-- Specific Job options container -->
         <div id="container-specific-job" class="space-y-4">
-          <!-- Job input type toggle -->
-          <div class="flex items-center justify-between text-xs font-semibold text-slate-500 pt-1">
-            <span>Job Description Source:</span>
-            <div class="flex gap-3">
-              <label class="inline-flex items-center gap-1.5 cursor-pointer">
-                <input type="radio" name="source_type_radio" value="paste" checked onchange="setJobSourceType('paste')" class="text-indigo-600 focus:ring-indigo-500">
-                <span>Paste JD</span>
-              </label>
-              <label class="inline-flex items-center gap-1.5 cursor-pointer">
-                <input type="radio" name="source_type_radio" value="select" onchange="setJobSourceType('select')" class="text-indigo-600 focus:ring-indigo-500">
-                <span>Platform Job</span>
-              </label>
-            </div>
-          </div>
-
-          <!-- Platform Job Dropdown -->
-          <div id="wrapper-select-job" class="hidden">
-            <label class="block text-xs font-semibold text-slate-500 mb-1.5">Select an active job</label>
-            {{ form.selected_job_id(id="selected-job-dropdown", class_="w-full bg-lavender border border-transparent rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors") }}
-          </div>
-
           <!-- Paste JD Textarea -->
           <div id="wrapper-paste-job">
-            {{ form.jd_text(rows=9, id="jd-text-input", class_="w-full bg-lavender border border-transparent rounded-xl px-4 py-3 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors resize-none", placeholder="Paste the Job Description here (including requirements, responsibilities, technical stack)...") }}
+            {{ form.jd_text(rows=10, id="jd-text-input", class_="w-full bg-lavender border border-transparent rounded-xl px-4 py-3 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors resize-none", placeholder="Paste the Job Description here (including requirements, responsibilities, technical stack)...") }}
             {% for error in form.jd_text.errors %}<p class="text-xs text-rose-500 mt-1">{{ error }}</p>{% endfor %}
           </div>
         </div>
@@ -215,7 +194,7 @@
         </div>
 
         <div class="h-3 bg-slate-100 rounded-full max-w-sm mx-auto mt-6 overflow-hidden">
-          <div class="h-full bg-indigo-600 rounded-full transition-all duration-700" style="width: {{ result.score }}%"></div>
+          <div class="h-full bg-indigo-600 rounded-full transition-all duration-700" style="--p: {{ result.score }}%; width: var(--p, 0%);"></div>
         </div>
 
         <!-- 5-Metric Breakdown Grid -->
@@ -435,7 +414,7 @@
                 <span class="text-xs font-extrabold text-indigo-600">{{ sec.score }}%</span>
               </div>
               <div class="h-1.5 bg-slate-100 rounded-full overflow-hidden mb-2.5">
-                <div class="h-full bg-indigo-600 rounded-full" style="width: {{ sec.score }}%"></div>
+                <div class="h-full bg-indigo-600 rounded-full" style="--sp: {{ sec.score }}%; width: var(--sp, 0%);"></div>
               </div>
               <p class="text-[11px] text-slate-500 line-clamp-2">{{ sec.feedback }}</p>
             </div>

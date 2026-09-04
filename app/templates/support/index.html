@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% set active_nav = 'support' %}
+{% block title %}Zentra — Help & Support Center{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-6 lg:px-10 py-10 space-y-10">
+
+  {# ── Header banner ── #}
+  <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white rounded-3xl p-8 sm:p-12 relative overflow-hidden shadow-xl">
+    <div class="relative z-10 max-w-2xl space-y-4">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur border border-white/10 text-xs font-semibold text-indigo-300">
+        <i class="bi bi-shield-check"></i> 24/7 Platform Support
+      </div>
+      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight">How can we help you today?</h1>
+      <p class="text-slate-300 text-sm sm:text-base leading-relaxed">
+        Browse common questions, explore platform guides, or submit a support ticket to connect directly with the Zentra team.
+      </p>
+      <div class="pt-2 flex flex-wrap items-center gap-3">
+        {% if current_user.is_authenticated %}
+        <a href="{{ url_for('main.new_support_ticket') }}" class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-6 py-3 rounded-xl transition-all shadow-md">
+          <i class="bi bi-plus-circle"></i> Submit a Ticket
+        </a>
+        {% else %}
+        <a href="{{ url_for('auth.login') }}" class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-6 py-3 rounded-xl transition-all shadow-md">
+          <i class="bi bi-box-arrow-in-right"></i> Log in to Submit Ticket
+        </a>
+        {% endif %}
+        <a href="#faq" class="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold px-5 py-3 rounded-xl transition-all border border-white/15">
+          <i class="bi bi-question-circle"></i> Browse FAQs
+        </a>
+      </div>
+    </div>
+    {# Background aesthetic decoration #}
+    <div class="absolute -right-12 -bottom-12 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+  </div>
+
+  {# ── User Tickets Section (if authenticated) ── #}
+  {% if current_user.is_authenticated %}
+  <div class="space-y-4">
+    <div class="flex items-center justify-between flex-wrap gap-3 pb-2 border-b border-slate-100">
+      <div>
+        <h2 class="text-xl font-bold text-ink">My Support Tickets</h2>
+        <p class="text-xs text-slate-400 mt-0.5">Track and manage your open inquiries and responses</p>
+      </div>
+      <a href="{{ url_for('main.new_support_ticket') }}" class="inline-flex items-center gap-2 bg-ink hover:bg-slate-800 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-colors">
+        <i class="bi bi-plus-lg"></i> New Ticket
+      </a>
+    </div>
+
+    {% if tickets %}
+    <div class="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-xs divide-y divide-slate-100">
+      {% for ticket in tickets %}
+      <a href="{{ url_for('main.support_ticket_detail', ticket_id=ticket.id) }}" class="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/70 transition-colors block">
+        <div class="flex items-start gap-3.5 min-w-0">
+          <div class="w-10 h-10 rounded-xl bg-lavender text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
+            #{{ ticket.id }}
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h3 class="font-bold text-sm text-ink hover:text-indigo-600 transition-colors truncate">{{ ticket.subject }}</h3>
+              <span class="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                {{ ticket.issue_type_label }}
+              </span>
+            </div>
+            <p class="text-xs text-slate-500 mt-1 line-clamp-1">{{ ticket.description }}</p>
+            <div class="flex items-center gap-3 text-[11px] text-slate-400 mt-1.5">
+              <span><i class="bi bi-clock mr-1"></i>Updated {{ ticket.updated_at.strftime('%b %d, %Y at %H:%M') }} UTC</span>
+              <span><i class="bi bi-chat-dots mr-1"></i>{{ ticket.messages|length }} message{{ 's' if ticket.messages|length != 1 else '' }}</span>
+              {% if ticket.attachment_filename %}
+              <span><i class="bi bi-paperclip mr-0.5"></i>Attachment</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3 shrink-0 self-end sm:self-center">
+          {% if ticket.status == 'open' %}
+          <span class="text-xs font-bold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Open
+          </span>
+          {% elif ticket.status == 'in_progress' %}
+          <span class="text-xs font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span> In Progress
+          </span>
+          {% else %}
+          <span class="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-slate-400"></span> Resolved
+          </span>
+          {% endif %}
+          <i class="bi bi-chevron-right text-slate-400 text-xs hidden sm:inline"></i>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white border border-slate-200 rounded-2xl p-8 text-center space-y-2">
+      <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-2 text-xl">
+        <i class="bi bi-ticket-perforated"></i>
+      </div>
+      <p class="font-bold text-ink text-sm">No support tickets yet</p>
+      <p class="text-xs text-slate-500 max-w-sm mx-auto">Have a question or running into an issue? Create a support ticket and our team will assist you.</p>
+      <div class="pt-2">
+        <a href="{{ url_for('main.new_support_ticket') }}" class="inline-flex items-center gap-1.5 bg-ink hover:bg-slate-800 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-colors">
+          <i class="bi bi-plus-lg"></i> Create your first ticket
+        </a>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {# ── Quick Topic Categories ── #}
+  <div class="space-y-4">
+    <h2 class="text-xl font-bold text-ink">Popular Support Topics</h2>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="bg-white border border-slate-200/90 rounded-2xl p-5 hover:border-indigo-300 hover:shadow-xs transition-all space-y-2">
+        <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg font-bold">
+          <i class="bi bi-file-earmark-check"></i>
+        </div>
+        <h3 class="font-bold text-sm text-ink">Resume & ATS Scoring</h3>
+        <p class="text-xs text-slate-500 leading-relaxed">Learn how Zentra calculates keyword matches, hard skills alignment, and structural formatting.</p>
+      </div>
+
+      <div class="bg-white border border-slate-200/90 rounded-2xl p-5 hover:border-indigo-300 hover:shadow-xs transition-all space-y-2">
+        <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-lg font-bold">
+          <i class="bi bi-briefcase"></i>
+        </div>
+        <h3 class="font-bold text-sm text-ink">Jobs & Application Deadlines</h3>
+        <p class="text-xs text-slate-500 leading-relaxed">Understand how application deadlines work, how to withdraw, and tracking your statuses.</p>
+      </div>
+
+      <div class="bg-white border border-slate-200/90 rounded-2xl p-5 hover:border-indigo-300 hover:shadow-xs transition-all space-y-2">
+        <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg font-bold">
+          <i class="bi bi-building-check"></i>
+        </div>
+        <h3 class="font-bold text-sm text-ink">Recruiter Verification</h3>
+        <p class="text-xs text-slate-500 leading-relaxed">Company profile approval requirements, talent pipeline management, and hiring workflows.</p>
+      </div>
+    </div>
+  </div>
+
+  {# ── FAQ Accordion Section ── #}
+  <div id="faq" class="space-y-4 pt-4">
+    <div class="border-b border-slate-100 pb-3">
+      <h2 class="text-xl font-bold text-ink">Frequently Asked Questions</h2>
+      <p class="text-xs text-slate-400 mt-0.5">Quick answers to common questions</p>
+    </div>
+
+    <div class="bg-white border border-slate-200/90 rounded-2xl divide-y divide-slate-100 overflow-hidden text-sm">
+      <details class="group p-5 cursor-pointer">
+        <summary class="font-bold text-slate-800 flex items-center justify-between list-none">
+          <span>How does the ATS score calculation work?</span>
+          <i class="bi bi-chevron-down text-xs text-slate-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-xs text-slate-600 mt-3 leading-relaxed">
+          Zentra's ATS engine compares your resume against the job requirements using skill keyword density, experience relevance, role alignment, and section completeness. A score of 70% or higher indicates strong alignment.
+        </p>
+      </details>
+
+      <details class="group p-5 cursor-pointer">
+        <summary class="font-bold text-slate-800 flex items-center justify-between list-none">
+          <span>What happens when an application deadline passes?</span>
+          <i class="bi bi-chevron-down text-xs text-slate-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-xs text-slate-600 mt-3 leading-relaxed">
+          Once a job deadline expires, the job automatically stops accepting new submissions. Existing candidates can still track their active application, and recruiters can review submissions or extend the deadline if needed.
+        </p>
+      </details>
+
+      <details class="group p-5 cursor-pointer">
+        <summary class="font-bold text-slate-800 flex items-center justify-between list-none">
+          <span>How will I be notified when support responds to my ticket?</span>
+          <i class="bi bi-chevron-down text-xs text-slate-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-xs text-slate-600 mt-3 leading-relaxed">
+          You will receive an in-app notification in your top navbar notification bell. Clicking the notification opens the ticket directly where you can read the response and reply.
+        </p>
+      </details>
+
+      <details class="group p-5 cursor-pointer">
+        <summary class="font-bold text-slate-800 flex items-center justify-between list-none">
+          <span>Can I attach files or screenshots to my ticket?</span>
+          <i class="bi bi-chevron-down text-xs text-slate-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-xs text-slate-600 mt-3 leading-relaxed">
+          Yes! You can attach screenshots or documents (PDF, PNG, JPG, DOCX up to 5MB) when opening a ticket or replying to an existing one.
+        </p>
+      </details>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

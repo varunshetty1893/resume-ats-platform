@@ -1,4 +1,4 @@
-from datetime import datetime
+from app.utils.time import utcnow
 
 from app import db
 
@@ -14,7 +14,7 @@ class Notification(db.Model):
     message = db.Column(db.String(300), nullable=False)
     link = db.Column(db.String(300), nullable=True)
     is_read = db.Column(db.Boolean, default=False, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
 
     candidate = db.relationship("User", back_populates="notifications")
 
@@ -39,6 +39,20 @@ class Notification(db.Model):
     @user.setter
     def user(self, val):
         self.candidate = val
+
+    @classmethod
+    def notify_admins(cls, title: str, message: str, link: str = None):
+        """Dispatch an in-app notification to all active platform administrators."""
+        from app.models.user import User
+        admins = User.query.filter_by(role=User.ROLE_ADMIN, is_active_account=True).all()
+        for admin in admins:
+            notif = cls(
+                candidate_id=admin.id,
+                title=title,
+                message=message,
+                link=link,
+            )
+            db.session.add(notif)
 
     def __repr__(self):
         return f"<Notification user_id={self.candidate_id} title='{self.title}'>"

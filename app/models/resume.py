@@ -1,4 +1,4 @@
-from datetime import datetime
+from app.utils.time import utcnow
 
 from app import db
 
@@ -23,11 +23,26 @@ class Resume(db.Model):
     last_matched_keywords = db.Column(db.Text, nullable=True)  # comma-separated
     last_missing_keywords = db.Column(db.Text, nullable=True)  # comma-separated
 
-    is_primary = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_primary = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    # Bumped whenever resume content/name/target_role is edited in place
+    # (Resume Builder's save-existing path). created_at is never touched
+    # after the row is first created. Falls back to created_at for rows
+    # that predate this column (see sync_schema.py).
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
     candidate = db.relationship("User", back_populates="resumes", foreign_keys=[candidate_id])
     applications = db.relationship("Application", back_populates="resume")
+
+    @classmethod
+    def get_primary(cls, candidate_id):
+        """Fetch the designated primary resume for a candidate, falling back to the most recent."""
+        if not candidate_id:
+            return None
+        primary = cls.query.filter_by(candidate_id=candidate_id, is_primary=True).first()
+        if primary:
+            return primary
+        return cls.query.filter_by(candidate_id=candidate_id).order_by(cls.created_at.desc()).first()
 
     def __repr__(self):
         return f"<Resume {self.id} candidate={self.candidate_id}>"

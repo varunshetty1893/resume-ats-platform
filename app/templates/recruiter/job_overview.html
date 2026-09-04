@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "recruiter/_status_dropdown.html" import status_dropdown %}
 {% block title %}Zentra — {{ job.title }} Workspace{% endblock %}
 
 {% block content %}
@@ -58,17 +59,7 @@
 
       <!-- Quick Status Switcher & Actions -->
       <div class="flex items-center gap-3 shrink-0 flex-wrap">
-        <form method="POST" action="{{ url_for('recruiter.update_job_status', job_id=job.id) }}" class="flex items-center gap-2">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-          <input type="hidden" name="return_to" value="overview"/>
-          <select name="status" onchange="this.form.submit()" 
-                  class="bg-slate-50 border border-slate-200 text-xs font-bold rounded-xl px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all shadow-sm">
-            <option value="active" {{ 'selected' if job.status == 'active' else '' }}>🟢 Active (Live)</option>
-            <option value="draft" {{ 'selected' if job.status == 'draft' else '' }}>🟡 Save as Draft</option>
-            <option value="paused" {{ 'selected' if job.status == 'paused' else '' }}>🔵 Pause Job</option>
-            <option value="closed" {{ 'selected' if job.status == 'closed' else '' }}>⚪ Close Job</option>
-          </select>
-        </form>
+        {{ status_dropdown(job, variant="full", return_to="overview") }}
 
         <a href="{{ url_for('recruiter.edit_job', job_id=job.id) }}" class="text-xs font-semibold border border-slate-200 px-3.5 py-2 rounded-xl hover:bg-slate-50 text-slate-700 transition-colors">
           <i class="bi bi-pencil mr-1"></i>Edit Posting

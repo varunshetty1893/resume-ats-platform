@@ -264,7 +264,12 @@ def build_structured_resume_pdf(resume_data: Dict[str, Any], template: str = "mo
     if title:
         story.append(Paragraph(title, title_style))
 
-    contact_parts = [p for p in [email, phone, location, linkedin, github, portfolio] if p]
+    contact_parts = [p for p in [email, phone, location] if p]
+    links_list = personal.get("links") or []
+    if isinstance(links_list, list) and links_list:
+        contact_parts.extend([l.strip() for l in links_list if isinstance(l, str) and l.strip()])
+    else:
+        contact_parts.extend([p for p in [linkedin, github, portfolio] if p])
     if contact_parts:
         contact_line = "  ·  ".join(contact_parts)
         story.append(Paragraph(contact_line, contact_style))

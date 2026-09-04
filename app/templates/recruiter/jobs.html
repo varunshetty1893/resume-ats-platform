@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "recruiter/_status_dropdown.html" import status_dropdown %}
 {% block title %}Zentra — Jobs Management{% endblock %}
 
 {% block content %}
@@ -112,6 +113,9 @@
           <div class="flex items-center gap-4 text-xs text-slate-400 mt-2 flex-wrap">
             <span><i class="bi bi-geo-alt mr-1 text-slate-500"></i>{{ job.location or 'Remote' }}</span>
             <span><i class="bi bi-calendar3 mr-1 text-slate-500"></i>Posted {{ job.created_at.strftime('%b %d, %Y') }}</span>
+            {% if job.application_deadline %}
+            <span class="{% if job.is_deadline_passed %}text-rose-500 font-semibold{% else %}text-slate-500{% endif %}"><i class="bi bi-clock mr-1"></i>Deadline: {{ job.application_deadline.strftime('%b %d, %Y') }}{% if job.is_deadline_passed %} (Expired){% endif %}</span>
+            {% endif %}
             {% if job.salary_min or job.salary_max %}
             <span><i class="bi bi-cash-stack mr-1 text-slate-500"></i>₹{{ job.salary_min or '—' }}{% if job.salary_max %} - ₹{{ job.salary_max }}{% endif %} LPA</span>
             {% endif %}
@@ -139,17 +143,8 @@
             </div>
           </div>
 
-          <!-- Status Dropdown Menu Form -->
-          <form method="POST" action="{{ url_for('recruiter.update_job_status', job_id=job.id) }}" class="flex items-center gap-1.5">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-            <select name="status" onchange="this.form.submit()" 
-                    class="bg-white border border-slate-200 text-xs font-bold rounded-xl px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all shadow-sm">
-              <option value="active" {{ 'selected' if job.status == 'active' else '' }}>🟢 Set Active</option>
-              <option value="draft" {{ 'selected' if job.status == 'draft' else '' }}>🟡 Save Draft</option>
-              <option value="paused" {{ 'selected' if job.status == 'paused' else '' }}>🔵 Pause</option>
-              <option value="closed" {{ 'selected' if job.status == 'closed' else '' }}>⚪ Close</option>
-            </select>
-          </form>
+          <!-- Status Dropdown -->
+          {{ status_dropdown(job, variant="compact") }}
 
           <a href="{{ url_for('recruiter.edit_job', job_id=job.id) }}" class="text-xs font-semibold border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-700 transition-colors flex items-center gap-1">
             <i class="bi bi-pencil"></i>Edit

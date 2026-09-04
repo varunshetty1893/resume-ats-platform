@@ -1,18 +1,321 @@
-{% extends "base.html" %}{% set active_nav = 'jobs' %}{% block title %}Zentra — Find jobs{% endblock %}
-{% macro check(name,value,label) %}<label class="flex items-center gap-2 py-1.5 text-sm text-slate-600 cursor-pointer"><input type="checkbox" name="{{ name }}" value="{{ value }}" {% if value in request.args.getlist(name) %}checked{% endif %} class="accent-indigo-600 w-4 h-4">{{ label }}</label>{% endmacro %}
+{% extends "base.html" %}
+{% set active_nav = 'jobs' %}
+{% block title %}Zentra — Find jobs{% endblock %}
+
+{% macro check(name, value, label) %}
+<label class="flex items-center gap-2 py-1.5 text-xs sm:text-sm text-slate-600 hover:text-ink cursor-pointer select-none">
+  <input type="checkbox" name="{{ name }}" value="{{ value }}" {% if value in request.args.getlist(name) %}checked{% endif %} class="accent-indigo-600 w-4 h-4 rounded border-slate-300">
+  <span>{{ label }}</span>
+</label>
+{% endmacro %}
+
+{% block extra_head %}
+<style>
+  .filter-group {
+    border-top: 1px solid #f1f5f9;
+    margin-top: 0.85rem;
+    padding-top: 0.85rem;
+  }
+  .filter-group h3 {
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+    color: #0b0f19;
+  }
+  .filter-input {
+    min-width: 0;
+    width: 50%;
+    padding: 0.45rem 0.65rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    font-size: 0.8rem;
+    background-color: #f8fafc;
+  }
+  .filter-input:focus {
+    outline: none;
+    background-color: #ffffff;
+    border-color: #6366f1;
+  }
+  /* Hide scrollbar on filter sidebar */
+  .filter-aside::-webkit-scrollbar { display: none; }
+  .filter-aside { -ms-overflow-style: none; scrollbar-width: none; }
+  /* Pagination */
+  .pagination-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.6rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #374151;
+    background: #fff;
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+  .pagination-btn:hover:not(.pagination-active):not(.cursor-not-allowed) {
+    background: #eef0ff;
+    border-color: #6366f1;
+    color: #4338ca;
+  }
+  .pagination-active {
+    background: #0b0f19;
+    border-color: #0b0f19;
+    color: #fff;
+    pointer-events: none;
+  }
+  .pagination-ellipsis {
+    padding: 0.4rem 0.35rem;
+    font-size: 0.85rem;
+    color: #94a3b8;
+    user-select: none;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<main class="max-w-7xl mx-auto px-6 lg:px-10 py-10"><div><p class="text-xs font-bold tracking-[.18em] text-indigo-600">JOB SEARCH</p><h1 class="text-3xl font-extrabold tracking-tight mt-2">Find your next role</h1><p class="text-sm text-slate-500 mt-2">Search, filter, save, and apply when you are ready.</p></div>
-<div class="mt-7 grid lg:grid-cols-[240px_1fr] gap-7">
-  <form id="job-filter" method="GET" class="contents">
-  <aside class="bg-white border border-slate-200 rounded-2xl p-5 h-fit lg:sticky lg:top-24"><div class="flex justify-between items-center"><h2 class="font-bold">Filters</h2><a href="{{ url_for('main.jobs') }}" class="text-xs font-semibold text-indigo-600">Clear all</a></div>
-    <div class="filter-group"><h3>Experience</h3>{{ check('experience','entry','Entry') }}{{ check('experience','mid','Mid') }}{{ check('experience','senior','Senior') }}</div>
-    <div class="filter-group"><h3>Work mode</h3>{{ check('work_mode','remote','Remote') }}{{ check('work_mode','hybrid','Hybrid') }}{{ check('work_mode','onsite','On-site') }}</div>
-    <div class="filter-group"><h3>Salary (LPA)</h3><div class="flex gap-2"><input name="salary_min" value="{{ request.args.get('salary_min','') }}" inputmode="numeric" placeholder="Min" class="filter-input"><input name="salary_max" value="{{ request.args.get('salary_max','') }}" inputmode="numeric" placeholder="Max" class="filter-input"></div></div>
-    <div class="filter-group"><h3>Job type</h3>{{ check('job_type','full_time','Full time') }}{{ check('job_type','part_time','Part time') }}{{ check('job_type','internship','Internship') }}</div>
-    <button class="w-full mt-4 bg-ink text-white rounded-lg text-sm font-semibold py-2.5">Apply filters</button>
-  </aside>
-  </form>
-  <section><div class="relative"><i class="bi bi-search absolute top-1/2 -translate-y-1/2 left-4 text-slate-400"></i><input form="job-filter" name="q" value="{{ request.args.get('q','') }}" placeholder="Search by job title, skill, or company" class="w-full border border-slate-200 rounded-xl pl-11 pr-4 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600"><button form="job-filter" class="absolute right-2 top-2 bottom-2 bg-ink text-white px-5 rounded-lg text-sm font-semibold">Search</button></div>
-  <p class="text-sm text-slate-500 my-5"><b class="text-ink">{{ ranked_jobs|length }}</b> jobs found{% if current_user.is_authenticated and current_user.is_candidate %} · ranked for your resume{% endif %}</p>
-  <div class="space-y-4">{% for job, score in ranked_jobs %}<article role="link" tabindex="0" onclick="openJobCard(event, '{{ url_for('main.job_detail', job_id=job.id) }}')" onkeydown="if(event.key === 'Enter') openJobCard(event, '{{ url_for('main.job_detail', job_id=job.id) }}')" class="cursor-pointer bg-white border border-slate-200 rounded-2xl p-5 hover:border-indigo-200 hover:shadow-sm transition-all"><div class="flex gap-4"><div class="w-12 h-12 rounded-xl bg-lavender text-indigo-600 flex items-center justify-center font-bold shrink-0">{{ job.recruiter_profile.company_name[:2]|upper }}</div><div class="min-w-0 flex-1"><div class="flex justify-between gap-3"><div><a href="{{ url_for('main.job_detail',job_id=job.id) }}" class="font-bold text-lg hover:text-indigo-600">{{ job.title }}</a><p class="text-sm text-slate-600 mt-0.5">{{ job.recruiter_profile.company_name }}</p><p class="text-sm text-slate-500 mt-1"><i class="bi bi-geo-alt mr-1"></i>{{ job.location or 'Remote' }} · {{ job.work_mode|capitalize }}</p></div>{% if score is not none %}<div class="text-right shrink-0"><b class="text-indigo-600 text-sm">{{ score }}% Match</b></div>{% endif %}</div><p class="font-semibold text-sm mt-4">{{ job|salary_range }}</p><div class="flex flex-wrap gap-2 mt-3">{% for skill in ((job.requirements or job.description)|split_csv)[:4] %}<span class="text-xs bg-indigo-50 text-indigo-700 rounded-full px-2.5 py-1">{{ skill }}</span>{% endfor %}</div>{% if match_explanations.get(job.id) %}{% set explanation = match_explanations[job.id] %}<div class="mt-4 text-xs"><p class="font-semibold text-slate-500">Why you match</p><div class="flex flex-wrap gap-1.5 mt-2">{% for skill in explanation.matched_keywords[:4] %}<span class="text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full"><i class="bi bi-check2"></i> {{ skill }}</span>{% endfor %}{% for skill in explanation.missing_keywords[:2] %}<span class="text-rose-600 bg-rose-50 px-2 py-1 rounded-full">Missing: {{ skill }}</span>{% endfor %}</div><p class="text-slate-500 mt-2">Experience match: {{ explanation.breakdown['Experience Relevance'] }}% · Skills match: {{ explanation.breakdown['Skills Match'] }}%</p></div>{% endif %}<div class="flex items-center justify-between mt-5"><span class="text-xs text-slate-400">Posted {{ job.created_at.strftime('%d %b %Y') }}</span><div class="flex gap-2">{% if current_user.is_authenticated and current_user.is_candidate %}<form onclick="event.stopPropagation()" method="POST" action="{{ url_for('candidate.unsave_job' if job.id in saved_job_ids else 'candidate.save_job',job_id=job.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="border border-slate-200 text-sm font-semibold px-3 py-2 rounded-lg"><i class="bi {{ 'bi-heart-fill text-rose-500' if job.id in saved_job_ids else 'bi-heart' }}"></i><span class="sr-only">Save</span></button></form>{% endif %}<a onclick="event.stopPropagation()" href="{{ url_for('main.job_detail',job_id=job.id) }}" class="bg-ink text-white text-sm font-semibold px-4 py-2 rounded-lg">Apply</a></div></div></div></div></article>{% else %}<div class="text-center bg-white border border-slate-200 rounded-2xl p-12 text-slate-500">No jobs match these filters. Try clearing one or two filters.</div>{% endfor %}</div></section>
-</div></main>{% endblock %}{% block extra_head %}<style>.filter-group{border-top:1px solid #f1f5f9;margin-top:1rem;padding-top:1rem}.filter-group h3{font-size:.82rem;font-weight:700;margin-bottom:.35rem}.filter-input{min-width:0;width:50%;padding:.5rem .65rem;border:1px solid #e2e8f0;border-radius:.45rem;font-size:.8rem}</style>{% endblock %}{% block scripts %}<script>function openJobCard(event, url) { if (!event.target.closest('a, button, input')) window.location.href = url; }</script>{% endblock %}
+<main class="max-w-7xl mx-auto px-6 lg:px-10 py-10">
+  <div>
+    <p class="text-xs font-bold tracking-[.18em] text-indigo-600 uppercase">Job Search</p>
+    <h1 class="text-3xl font-extrabold tracking-tight mt-2 text-ink">Find your next role</h1>
+    <p class="text-sm text-slate-500 mt-2">Search, filter, save, and apply when you are ready.</p>
+  </div>
+
+  <div class="mt-7 grid lg:grid-cols-[260px_1fr] gap-7 items-start">
+    <!-- Filter Sidebar Form -->
+    <form id="job-filter" method="GET" class="contents">
+      <aside class="filter-aside bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto flex flex-col justify-between">
+        <div>
+          <div class="flex justify-between items-center pb-2">
+            <h2 class="font-bold text-sm text-ink">Filters</h2>
+            <a href="{{ url_for('main.jobs') }}" class="text-xs font-semibold text-indigo-600 hover:underline">Clear all</a>
+          </div>
+
+          <div class="filter-group">
+            <h3>Experience</h3>
+            {{ check('experience','entry','Entry Level') }}
+            {{ check('experience','mid','Mid Level') }}
+            {{ check('experience','senior','Senior Level') }}
+          </div>
+
+          <div class="filter-group">
+            <h3>Work mode</h3>
+            {{ check('work_mode','remote','Remote') }}
+            {{ check('work_mode','hybrid','Hybrid') }}
+            {{ check('work_mode','onsite','On-site') }}
+          </div>
+
+          <div class="filter-group">
+            <h3>Salary (LPA)</h3>
+            <div class="flex gap-2">
+              <input name="salary_min" value="{{ request.args.get('salary_min','') }}" inputmode="numeric" placeholder="Min" class="filter-input">
+              <input name="salary_max" value="{{ request.args.get('salary_max','') }}" inputmode="numeric" placeholder="Max" class="filter-input">
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <h3>Job type</h3>
+            {{ check('job_type','full_time','Full time') }}
+            {{ check('job_type','part_time','Part time') }}
+            {{ check('job_type','internship','Internship') }}
+          </div>
+        </div>
+
+        <div class="pt-4 mt-4 border-t border-slate-100 sticky bottom-0 bg-white pb-1">
+          <button type="submit" class="w-full bg-ink hover:bg-slate-800 text-white rounded-xl text-xs sm:text-sm font-semibold py-2.5 transition-colors cursor-pointer shadow-2xs">
+            Apply filters
+          </button>
+        </div>
+      </aside>
+    </form>
+
+    <!-- Main Job Listings -->
+    <section>
+      <div class="relative">
+        <i class="bi bi-search absolute top-1/2 -translate-y-1/2 left-4 text-slate-400"></i>
+        <input form="job-filter" name="q" value="{{ request.args.get('q','') }}" placeholder="Search by job title, skill, or company" class="w-full border border-slate-200 rounded-xl pl-11 pr-24 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600">
+        <button form="job-filter" type="submit" class="absolute right-2 top-2 bottom-2 bg-ink hover:bg-slate-800 text-white px-4 rounded-lg text-xs sm:text-sm font-semibold transition-colors cursor-pointer">
+          Search
+        </button>
+      </div>
+
+      <p class="text-sm text-slate-500 my-5">
+        <b class="text-ink">{{ pagination.total }}</b> job{{ 's' if pagination.total != 1 else '' }} found{% if current_user.is_authenticated and current_user.is_candidate %} · ranked for your resume{% endif %}
+        {% if pagination.pages > 1 %}<span class="text-slate-400"> · page {{ current_page }} of {{ pagination.pages }}</span>{% endif %}
+      </p>
+
+      <div class="space-y-4">
+        {% for job, score in ranked_jobs %}
+        {% set job_url = url_for('main.job_detail', job_id=job.id) %}
+        <article role="link" tabindex="0" onclick="openJobCard(event, '{{ job_url }}')" onkeydown="if(event.key === 'Enter') openJobCard(event, '{{ job_url }}')" class="cursor-pointer bg-white border border-slate-200/80 rounded-2xl p-5 hover:border-indigo-300 hover:shadow-xs transition-all">
+          <div class="flex gap-4">
+            <div class="w-12 h-12 rounded-xl bg-lavender text-indigo-600 flex items-center justify-center font-bold shrink-0 text-sm">
+              {{ job.recruiter_profile.company_name[:2]|upper if job.recruiter_profile else 'CO' }}
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex justify-between gap-3">
+                <div>
+                  <a href="{{ url_for('main.job_detail', job_id=job.id) }}" class="font-bold text-base sm:text-lg text-ink hover:text-indigo-600">
+                    {{ job.title }}
+                  </a>
+                  <p class="text-sm text-slate-600 mt-0.5 font-medium">{{ job.recruiter_profile.company_name if job.recruiter_profile else 'Company' }}</p>
+                  <p class="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                    <i class="bi bi-geo-alt"></i>{{ job.location or 'Remote' }} · {{ job.work_mode|capitalize }}
+                  </p>
+                </div>
+                {% if score is not none %}
+                <div class="text-right shrink-0">
+                  <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                    {{ score }}% Match
+                  </span>
+                </div>
+                {% endif %}
+              </div>
+
+              <p class="font-semibold text-xs sm:text-sm text-slate-700 mt-3">{{ job|salary_range }}</p>
+
+              <div class="flex flex-wrap gap-1.5 mt-2.5">
+                {% for skill in ((job.requirements or job.description)|split_csv)[:4] %}
+                <span class="text-xs bg-slate-100 text-slate-700 rounded-lg px-2.5 py-0.5 font-medium">{{ skill }}</span>
+                {% endfor %}
+              </div>
+
+              {% if match_explanations.get(job.id) %}
+              {% set explanation = match_explanations[job.id] %}
+              <div class="mt-4 text-xs bg-slate-50 border border-slate-100 rounded-xl p-3">
+                <p class="font-bold text-slate-600">Why you match</p>
+                <div class="flex flex-wrap gap-1.5 mt-1.5">
+                  {% for skill in explanation.matched_keywords[:4] %}
+                  <span class="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-medium"><i class="bi bi-check2"></i> {{ skill }}</span>
+                  {% endfor %}
+                  {% for skill in explanation.missing_keywords[:2] %}
+                  <span class="text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md font-medium">Missing: {{ skill }}</span>
+                  {% endfor %}
+                </div>
+                <p class="text-slate-400 mt-1.5 text-[11px]">Experience relevance: {{ explanation.breakdown['Experience Relevance'] }}% · Skills match: {{ explanation.breakdown['Skills Match'] }}%</p>
+              </div>
+              {% endif %}
+
+              <div class="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
+                <div class="text-xs text-slate-400">
+                  <span>Posted {{ job.created_at.strftime('%d %b %Y') }}</span>
+                  {% if job.application_deadline %}
+                    {% if job.is_deadline_passed %}
+                    <span class="text-rose-500 font-medium ml-1">· Deadline passed</span>
+                    {% else %}
+                    <span class="text-indigo-600 font-medium ml-1">· Deadline {{ job.application_deadline.strftime('%b %d, %Y') }}</span>
+                    {% endif %}
+                  {% endif %}
+                </div>
+                <div class="flex items-center gap-2">
+                  {% if current_user.is_authenticated and current_user.is_candidate %}
+                  <form onclick="event.stopPropagation()" method="POST" action="{{ url_for('candidate.unsave_job' if job.id in saved_job_ids else 'candidate.save_job', job_id=job.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="border border-slate-200 text-sm font-semibold px-3 py-1.5 rounded-xl hover:bg-slate-50 transition-colors">
+                      <i class="bi {{ 'bi-heart-fill text-rose-500' if job.id in saved_job_ids else 'bi-heart text-slate-500' }}"></i>
+                      <span class="sr-only">Save</span>
+                    </button>
+                  </form>
+                  {% endif %}
+                  {% if not job.is_accepting_applications %}
+                  <a onclick="event.stopPropagation()" href="{{ url_for('main.job_detail', job_id=job.id) }}" class="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs sm:text-sm font-semibold px-3.5 py-1.5 rounded-xl transition-colors">
+                    Closed
+                  </a>
+                  {% else %}
+                  <a onclick="event.stopPropagation()" href="{{ url_for('main.job_detail', job_id=job.id) }}" class="bg-ink hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold px-4 py-1.5 rounded-xl transition-colors">
+                    Apply
+                  </a>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+        {% else %}
+        <div class="text-center bg-white border border-slate-200 rounded-2xl p-12 text-slate-500 space-y-2">
+          <i class="bi bi-funnel text-3xl text-slate-400"></i>
+          <p class="font-bold text-slate-700">No jobs match these filters</p>
+          <p class="text-xs">Try clearing one or two filters or changing your search terms.</p>
+        </div>
+        {% endfor %}
+      </div>
+
+      {# ── Pagination controls ── #}
+      {% if pagination.pages > 1 %}
+      <nav aria-label="Job listings pages" class="mt-8 flex items-center justify-center gap-1 flex-wrap">
+
+        {# Preserve all active filter/search params when changing page.
+           Pass None for empty values so url_for omits them entirely. #}
+        {% macro page_url(p) %}{{ url_for('main.jobs',
+          page=p,
+          q=request.args.get('q') or none,
+          experience=request.args.getlist('experience') or none,
+          work_mode=request.args.getlist('work_mode') or none,
+          job_type=request.args.getlist('job_type') or none,
+          salary_min=request.args.get('salary_min') or none,
+          salary_max=request.args.get('salary_max') or none
+        ) }}{% endmacro %}
+
+        {# Previous button #}
+        {% if pagination.has_prev %}
+        <a href="{{ page_url(current_page - 1) }}" class="pagination-btn" aria-label="Previous page">
+          <i class="bi bi-chevron-left text-xs"></i> Prev
+        </a>
+        {% else %}
+        <span class="pagination-btn opacity-40 cursor-not-allowed" aria-disabled="true">
+          <i class="bi bi-chevron-left text-xs"></i> Prev
+        </span>
+        {% endif %}
+
+        {# Page number buttons — show window of 5 around current page #}
+        {% set window = 2 %}
+        {% set start_p = [1, current_page - window]|max %}
+        {% set end_p   = [pagination.pages, current_page + window]|min %}
+
+        {% if start_p > 1 %}
+          <a href="{{ page_url(1) }}" class="pagination-btn">1</a>
+          {% if start_p > 2 %}<span class="pagination-ellipsis">…</span>{% endif %}
+        {% endif %}
+
+        {% for p in range(start_p, end_p + 1) %}
+          {% if p == current_page %}
+          <span class="pagination-btn pagination-active" aria-current="page">{{ p }}</span>
+          {% else %}
+          <a href="{{ page_url(p) }}" class="pagination-btn">{{ p }}</a>
+          {% endif %}
+        {% endfor %}
+
+        {% if end_p < pagination.pages %}
+          {% if end_p < pagination.pages - 1 %}<span class="pagination-ellipsis">…</span>{% endif %}
+          <a href="{{ page_url(pagination.pages) }}" class="pagination-btn">{{ pagination.pages }}</a>
+        {% endif %}
+
+        {# Next button #}
+        {% if pagination.has_next %}
+        <a href="{{ page_url(current_page + 1) }}" class="pagination-btn" aria-label="Next page">
+          Next <i class="bi bi-chevron-right text-xs"></i>
+        </a>
+        {% else %}
+        <span class="pagination-btn opacity-40 cursor-not-allowed" aria-disabled="true">
+          Next <i class="bi bi-chevron-right text-xs"></i>
+        </span>
+        {% endif %}
+
+      </nav>
+      {% endif %}
+    </section>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openJobCard(event, url) {
+  if (!event.target.closest('a, button, input')) {
+    window.location.href = url;
+  }
+}
+</script>
+{% endblock %}

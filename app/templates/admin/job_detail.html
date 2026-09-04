@@ -110,7 +110,7 @@
               {% for app in job.applications | sort(attribute='applied_at', reverse=True) %}
               <tr class="hover:bg-slate-50/60 transition-colors">
                 <td class="px-6 py-3.5 font-semibold text-ink">
-                  <a href="{{ url_for('admin.application_detail', app_id=app.id) }}" class="hover:text-indigo-600">
+                  <a href="{{ url_for('admin.user_detail', user_id=app.candidate_id) }}" class="hover:text-indigo-600">
                     {{ app.candidate.full_name }}
                   </a>
                   <p class="text-xs text-slate-400 font-normal">{{ app.candidate.email }}</p>
@@ -125,9 +125,9 @@
                     {{ app.status | replace('_', ' ') | title }}
                   </span>
                 </td>
-                <td class="px-6 py-3.5 text-slate-400 text-xs">{{ app.applied_at.strftime('%b %d, %Y') }}</td>
+                <td class="px-6 py-3.5 text-slate-400 text-xs">{{ app.applied_at.strftime('%b %d, %Y') if app.applied_at else "—" }}</td>
                 <td class="px-6 py-3.5">
-                  <a href="{{ url_for('admin.application_detail', app_id=app.id) }}" class="text-indigo-600 hover:underline text-xs font-semibold">Inspect App →</a>
+                  <a href="{{ url_for('admin.user_detail', user_id=app.candidate_id) }}" class="text-indigo-600 hover:underline text-xs font-semibold">View Candidate →</a>
                 </td>
               </tr>
               {% else %}

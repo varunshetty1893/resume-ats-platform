@@ -28,7 +28,6 @@
   </div>
 
   <!-- Page Navigation Controls -->
-  {% if pagination.pages > 1 %}
   <nav class="flex items-center gap-1.5" aria-label="Pagination">
     <!-- Previous Button -->
     {% if pagination.has_prev %}
@@ -39,7 +38,7 @@
         <i class="bi bi-chevron-left text-[10px]"></i> Previous
       </a>
     {% else %}
-      <span class="inline-flex items-center gap-1 border border-slate-100 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 cursor-not-allowed bg-slate-50/50">
+      <span class="inline-flex items-center gap-1 border border-slate-100 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 cursor-not-allowed bg-slate-50/50 select-none">
         <i class="bi bi-chevron-left text-[10px]"></i> Previous
       </span>
     {% endif %}
@@ -68,7 +67,7 @@
 
     <!-- Mobile Current Page Display -->
     <span class="sm:hidden text-xs text-slate-500 font-medium px-2">
-      {{ pagination.page }} / {{ pagination.pages }}
+      {{ pagination.page }} / {{ pagination.pages or 1 }}
     </span>
 
     <!-- Next Button -->
@@ -80,12 +79,11 @@
         Next <i class="bi bi-chevron-right text-[10px]"></i>
       </a>
     {% else %}
-      <span class="inline-flex items-center gap-1 border border-slate-100 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 cursor-not-allowed bg-slate-50/50">
+      <span class="inline-flex items-center gap-1 border border-slate-100 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 cursor-not-allowed bg-slate-50/50 select-none">
         Next <i class="bi bi-chevron-right text-[10px]"></i>
       </span>
     {% endif %}
   </nav>
-  {% endif %}
 
 </div>
 {% endif %}

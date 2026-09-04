@@ -1,4 +1,4 @@
-from datetime import datetime
+from app.utils.time import utcnow
 
 from app import db
 
@@ -30,7 +30,7 @@ class RecruiterProfile(db.Model):
     hiring_needs = db.Column(db.Text, nullable=True)
 
     approval_status = db.Column(db.String(20), nullable=False, default=STATUS_PENDING)
-    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+    submitted_at = db.Column(db.DateTime, default=utcnow)
     reviewed_at = db.Column(db.DateTime, nullable=True)
     reviewed_by_admin_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     rejection_reason = db.Column(db.String(255), nullable=True)

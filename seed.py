@@ -165,6 +165,13 @@ SAMPLE_COMPANIES = [
 DEFAULT_RECRUITER_PASSWORD = os.environ.get("RECRUITER_SEED_PASSWORD", "SampleRecruiter123!")
 
 with app.app_context():
+    if app.config.get("ENV") == "production" or os.environ.get("FLASK_ENV") == "production":
+        if ADMIN_PASSWORD == "Admin@123" or ADMIN_PASSWORD == "ChangeMe123!":
+            raise SystemExit(
+                "Refusing to seed a production database with the default admin "
+                "password. Set ADMIN_SEED_PASSWORD to a real password and re-run."
+            )
+
     db.create_all()
 
     if not User.query.filter_by(email=ADMIN_EMAIL).first():

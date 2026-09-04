@@ -61,9 +61,15 @@
             <div>
               <div class="flex items-center gap-2 flex-wrap">
                 <h3 class="text-lg font-bold text-ink">{{ profile.company_name }}</h3>
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ 'bg-emerald-50 text-emerald-700 border border-emerald-200' if profile.approval_status == 'approved' else ('bg-amber-50 text-amber-700 border border-amber-200' if profile.approval_status == 'pending' else 'bg-rose-50 text-rose-700 border border-rose-200') }}">
+                {% if profile.approval_status == 'approved' %}
+                <span class="inline-flex items-center text-emerald-500 ml-1" title="Verified Recruiter">
+                  <i class="bi bi-patch-check-fill text-sm"></i>
+                </span>
+                {% else %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ 'bg-amber-50 text-amber-700 border border-amber-200' if profile.approval_status == 'pending' else 'bg-rose-50 text-rose-700 border border-rose-200' }}">
                   {{ profile.approval_status | title }}
                 </span>
+                {% endif %}
               </div>
               <p class="text-xs text-slate-500 mt-0.5">{{ profile.user.full_name }} · <span class="font-mono text-slate-400">{{ profile.user.email }}</span></p>
             </div>

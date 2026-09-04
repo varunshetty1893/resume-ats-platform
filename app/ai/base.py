@@ -45,6 +45,17 @@ class BaseAIProvider(ABC):
         pass
 
     @abstractmethod
+    def retouch_bio(
+        self,
+        raw_bio: str,
+        headline: str = "",
+        skills: Optional[List[str]] = None,
+        target_role: str = "",
+    ) -> Optional[str]:
+        """Rewrites and elevates a candidate's rough bio into a polished, professional 2-3 sentence summary."""
+        pass
+
+    @abstractmethod
     def explain_match(
         self,
         resume_text: str,

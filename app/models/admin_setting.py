@@ -1,4 +1,4 @@
-from datetime import datetime
+from app.utils.time import utcnow
 
 from app import db
 
@@ -17,7 +17,7 @@ class AdminSetting(db.Model):
     value = db.Column(db.Text, nullable=True)
     label = db.Column(db.String(150), nullable=True)
     description = db.Column(db.String(300), nullable=True)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
     updated_by_admin_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
 
     updated_by = db.relationship("User", foreign_keys=[updated_by_admin_id])
@@ -34,7 +34,7 @@ class AdminSetting(db.Model):
         row = cls.query.filter_by(key=key).first()
         if row:
             row.value = value
-            row.updated_at = datetime.utcnow()
+            row.updated_at = utcnow()
             if admin_id:
                 row.updated_by_admin_id = admin_id
         else:

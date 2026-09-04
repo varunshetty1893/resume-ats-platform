@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% set active_nav = 'support' %}
+{% block title %}Zentra — Support Ticket #{{ ticket.id }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-6 lg:px-10 py-10 space-y-8">
+
+  <a href="{{ url_for('main.support') }}" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-ink transition-colors">
+    <i class="bi bi-arrow-left"></i> Back to Support Tickets
+  </a>
+
+  {# ── Ticket Header Card ── #}
+  <div class="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">
+    <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-slate-100 pb-5">
+      <div>
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <span class="text-xs font-mono font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700">#{{ ticket.id }}</span>
+          <span class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100">
+            {{ ticket.issue_type_label }}
+          </span>
+        </div>
+        <h1 class="text-xl sm:text-2xl font-extrabold text-ink mt-2 tracking-tight">{{ ticket.subject }}</h1>
+        <p class="text-xs text-slate-400 mt-1 flex items-center gap-3 flex-wrap">
+          <span><i class="bi bi-clock mr-1"></i>Created {{ ticket.created_at.strftime('%b %d, %Y at %H:%M') }} UTC</span>
+          <span><i class="bi bi-arrow-repeat mr-1"></i>Last updated {{ ticket.updated_at.strftime('%b %d, %Y at %H:%M') }} UTC</span>
+        </p>
+      </div>
+
+      {# Status badge #}
+      <div class="shrink-0">
+        {% if ticket.status == 'open' %}
+        <span class="text-xs font-bold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Open
+        </span>
+        {% elif ticket.status == 'in_progress' %}
+        <span class="text-xs font-bold px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-amber-500"></span> In Progress
+        </span>
+        {% else %}
+        <span class="text-xs font-bold px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-slate-400"></span> Resolved
+        </span>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Ticket Original Attachment (if any) #}
+    {% if ticket.attachment_filename %}
+    <div class="flex items-center gap-2 text-xs bg-slate-50 border border-slate-200 rounded-xl p-3">
+      <i class="bi bi-paperclip text-slate-500 text-sm"></i>
+      <span class="text-slate-600 font-medium">Initial Attachment:</span>
+      <a href="{{ url_for('main.support_attachment', filename=ticket.attachment_filename) }}" target="_blank" class="font-bold text-indigo-600 hover:underline">
+        {{ ticket.attachment_filename.split('_', 1)[-1] if '_' in ticket.attachment_filename else ticket.attachment_filename }}
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ── Conversation Thread ── #}
+  <div class="space-y-4">
+    <h2 class="text-base font-bold text-ink flex items-center gap-2">
+      <i class="bi bi-chat-left-text text-indigo-600"></i> Conversation History
+    </h2>
+
+    <div class="space-y-4">
+      {% for msg in ticket.messages %}
+      <div class="rounded-2xl p-5 border transition-all {{ 'bg-indigo-50/40 border-indigo-100 ml-0 sm:ml-6' if msg.is_admin_response else 'bg-white border-slate-200/90 mr-0 sm:mr-6' }}">
+        <div class="flex items-center justify-between gap-2 pb-2 mb-2 border-b {{ 'border-indigo-100/60' if msg.is_admin_response else 'border-slate-100' }}">
+          <div class="flex items-center gap-2">
+            <span class="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs {{ 'bg-indigo-600 text-white' if msg.is_admin_response else 'bg-ink text-white' }}">
+              {{ 'Z' if msg.is_admin_response else msg.sender.full_name[:1]|upper }}
+            </span>
+            <div>
+              <span class="font-bold text-xs text-ink">{{ 'Zentra Support Team' if msg.is_admin_response else msg.sender.full_name }}</span>
+              {% if msg.is_admin_response %}
+              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-600 text-white ml-1">Staff</span>
+              {% endif %}
+            </div>
+          </div>
+          <span class="text-[11px] text-slate-400">{{ msg.created_at.strftime('%b %d, %Y · %H:%M') }} UTC</span>
+        </div>
+
+        <p class="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line">{{ msg.message }}</p>
+
+        {% if msg.attachment_filename %}
+        <div class="mt-3 pt-2 border-t border-slate-100/80 flex items-center gap-2 text-xs">
+          <i class="bi bi-paperclip text-slate-400"></i>
+          <span class="text-slate-500">Attachment:</span>
+          <a href="{{ url_for('main.support_attachment', filename=msg.attachment_filename) }}" target="_blank" class="font-semibold text-indigo-600 hover:underline">
+            {{ msg.attachment_filename.split('_', 1)[-1] if '_' in msg.attachment_filename else msg.attachment_filename }}
+          </a>
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ── Reply Box ── #}
+  <div class="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">
+    <h3 class="font-bold text-sm text-ink flex items-center gap-2">
+      <i class="bi bi-reply-fill text-indigo-600"></i> Add a Response
+    </h3>
+
+    {% if ticket.status == 'resolved' %}
+    <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600 flex items-center gap-2">
+      <i class="bi bi-info-circle text-slate-400"></i>
+      This ticket is marked as resolved. Sending a new message will reopen the ticket.
+    </div>
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data" class="space-y-4">
+      {{ form.hidden_tag() }}
+
+      <div>
+        {{ form.message(rows="4", placeholder="Type your message or follow-up question here...", class_="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all leading-relaxed") }}
+        {% for error in form.message.errors %}
+        <p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>
+        {% endfor %}
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.attachment.label.text }}</label>
+        <div class="border border-dashed border-slate-200 rounded-xl p-3 bg-slate-50/40">
+          {{ form.attachment(class_="text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-200 file:text-slate-800 hover:file:bg-slate-300 file:cursor-pointer") }}
+        </div>
+        {% for error in form.attachment.errors %}
+        <p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>
+        {% endfor %}
+      </div>
+
+      <div class="pt-2">
+        {{ form.submit(class_="bg-ink hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold px-6 py-2.5 rounded-xl transition-all shadow-sm cursor-pointer") }}
+      </div>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

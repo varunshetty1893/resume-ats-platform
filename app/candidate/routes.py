@@ -1,9 +1,14 @@
 import os
 import uuid
 import json
+import re
+from app.utils.time import utcnow
 from flask import Blueprint, render_template, redirect, url_for, flash, current_app, send_file, request, jsonify
 from flask_login import login_required, current_user, logout_user
 from werkzeug.utils import secure_filename
+from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload
 
 from app import db
 from app.models.resume import Resume
@@ -19,7 +24,7 @@ from app.utils.decorators import role_required
 from app.utils.file_security import inspect_file_magic, generate_secure_stored_filename, FileValidationError
 from app.utils.security import limiter
 from app.ml.resume_parser import extract_text
-from app.ml.ats_scorer import score_resume
+from app.ml.ats_scorer import score_resume, score_resume_for_job
 from app.ml.category_classifier import predict_category, category_reference_text
 from app.ml.bullet_improver import improve_resume_bullet
 from app.ml.job_matcher import rank_jobs_for_resume
@@ -37,28 +42,42 @@ candidate_bp = Blueprint("candidate", __name__, template_folder="../templates/ca
 @candidate_bp.route("/dashboard")
 @role_required("candidate")
 def dashboard():
+    candidate_applications = Application.query.filter_by(candidate_id=current_user.id)
+
+    # Recent-5 list for display and the true total are two separate
+    # queries now — the list length was previously (mis)used as the count.
     applications = (
-        Application.query.filter_by(candidate_id=current_user.id)
+        candidate_applications.options(joinedload(Application.job).joinedload(Job.recruiter_profile))
         .order_by(Application.applied_at.desc())
         .limit(5)
         .all()
     )
-    latest_resume = (
-        Resume.query.filter_by(candidate_id=current_user.id)
-        .order_by(Resume.created_at.desc())
-        .first()
-    )
+    total_applications = candidate_applications.count()
+
+    primary_resume = Resume.get_primary(current_user.id)
 
     recommended = []
-    if latest_resume:
-        active_jobs = Job.query.filter_by(status=Job.STATUS_ACTIVE).all()
-        ranked = rank_jobs_for_resume(latest_resume.raw_text, active_jobs)
+    if primary_resume:
+        # Jobs already applied to are excluded up front — keeps them out of
+        # "Recommended for you" and means fewer jobs get scored below.
+        applied_job_ids = db.session.query(Application.job_id).filter_by(candidate_id=current_user.id)
+        active_jobs = (
+            Job.query.options(joinedload(Job.recruiter_profile))
+            .filter(
+                Job.status == Job.STATUS_ACTIVE,
+                or_(Job.application_deadline.is_(None), Job.application_deadline >= utcnow()),
+                Job.id.notin_(applied_job_ids),
+            )
+            .all()
+        )
+        ranked = rank_jobs_for_resume(primary_resume.raw_text, active_jobs)
         recommended = ranked[:3]
 
     return render_template(
         "candidate/dashboard.html",
         applications=applications,
-        latest_resume=latest_resume,
+        total_applications=total_applications,
+        latest_resume=primary_resume,
         resumes=Resume.query.filter_by(candidate_id=current_user.id).order_by(Resume.created_at.desc()).all(),
         recommended=recommended,
     )
@@ -69,7 +88,14 @@ def dashboard():
 @limiter.limit(lambda: current_app.config.get("RATELIMIT_AUTHENTICATED", "120 per minute"))
 def resume_ai():
     form = ATSCheckForm()
-    active_jobs = Job.query.filter_by(status=Job.STATUS_ACTIVE).order_by(Job.created_at.desc()).all()
+    active_jobs = (
+        Job.query.filter(
+            Job.status == Job.STATUS_ACTIVE,
+            or_(Job.application_deadline.is_(None), Job.application_deadline >= utcnow()),
+        )
+        .order_by(Job.created_at.desc())
+        .all()
+    )
     form.selected_job_id.choices = [("", "-- Select an active platform job --")] + [
         (str(j.id), f"{j.title} — {j.recruiter_profile.company_name if j.recruiter_profile else 'Company'} ({j.location or 'Remote'})")
         for j in active_jobs
@@ -94,7 +120,15 @@ def resume_ai():
             stored_filename = generate_secure_stored_filename(original_filename)
             filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], stored_filename)
             uploaded.save(filepath)
-            resume_text = extract_text(filepath)
+            try:
+                resume_text = extract_text(filepath)
+            except Exception:
+                # A file can pass the magic-byte/structure check in
+                # inspect_file_magic() and still fail to parse (e.g. a
+                # DOCX whose document.xml is present but malformed) —
+                # don't let that surface as an unhandled 500.
+                flash("Couldn't read that resume file — it may be corrupted. Try re-saving it or paste your resume text instead.", "error")
+                return render_template("resume_ai.html", form=form, result=None, active_jobs=active_jobs)
 
         if not resume_text:
             flash("Upload a resume file or paste your resume text.", "error")
@@ -122,8 +156,7 @@ def resume_ai():
                     selected_job_obj = None
 
             if selected_job_obj:
-                jd_text = " ".join(filter(None, [selected_job_obj.title, selected_job_obj.description, selected_job_obj.requirements]))
-                result = score_resume(resume_text, jd_text)
+                result = score_resume_for_job(resume_text, selected_job_obj)
                 result["target_job"] = {
                     "id": selected_job_obj.id,
                     "title": selected_job_obj.title,
@@ -145,6 +178,12 @@ def resume_ai():
                 .order_by(Resume.created_at.desc())
                 .first()
             )
+            # Becomes primary only if the candidate has no resume already
+            # flagged as primary — not just "is this their first resume
+            # ever" — so an old row left without a primary flag (e.g. from
+            # data predating this logic) self-heals instead of leaving the
+            # candidate with zero primaries.
+            has_primary = Resume.query.filter_by(candidate_id=current_user.id, is_primary=True).first() is not None
             resume = Resume(
                 candidate_id=current_user.id,
                 source="upload" if stored_filename else "paste",
@@ -156,6 +195,7 @@ def resume_ai():
                 last_ats_score=result["score"],
                 last_matched_keywords=", ".join(result["matched_keywords"]),
                 last_missing_keywords=", ".join(result["missing_keywords"]),
+                is_primary=not has_primary,
             )
             db.session.add(resume)
             if previous_score and result["score"] > previous_score.last_ats_score:
@@ -209,12 +249,14 @@ def resume_builder():
             "achievements": [],
         }
 
+        has_primary = Resume.query.filter_by(candidate_id=current_user.id, is_primary=True).first() is not None
         resume = Resume(
             candidate_id=current_user.id,
             source="builder",
             raw_text=json.dumps(structured_data),
             name=resume_name,
             target_role=target_role,
+            is_primary=not has_primary,
         )
         db.session.add(resume)
         db.session.commit()
@@ -236,10 +278,21 @@ def resume_builder():
     if resume_id:
         resume_obj = Resume.query.filter_by(id=resume_id, candidate_id=current_user.id).first()
 
-    active_jobs = Job.query.filter_by(status=Job.STATUS_ACTIVE).order_by(Job.created_at.desc()).all()
+    active_jobs = (
+        Job.query.filter(
+            Job.status == Job.STATUS_ACTIVE,
+            or_(Job.application_deadline.is_(None), Job.application_deadline >= utcnow()),
+        )
+        .order_by(Job.created_at.desc())
+        .all()
+    )
     target_job = None
     if target_job_id:
-        target_job = Job.query.filter_by(id=target_job_id, status=Job.STATUS_ACTIVE).first()
+        target_job = Job.query.filter(
+            Job.id == target_job_id,
+            Job.status == Job.STATUS_ACTIVE,
+            or_(Job.application_deadline.is_(None), Job.application_deadline >= utcnow()),
+        ).first()
 
     if resume_obj:
         initial_data = parse_resume_to_structured_dict(resume_obj.raw_text, resume_obj.name, resume_obj.target_role)
@@ -321,6 +374,28 @@ def resume_builder():
     )
 
 
+def _rescore_applications_for_resume(resume):
+    """Re-score every Application pinned to `resume` after its raw_text changed.
+
+    Application.resume_id is a fixed snapshot set at apply-time, so this is
+    the only path that can make an already-submitted application's stored
+    score stale from the candidate side (uploading a brand-new resume via
+    Resume AI never touches an existing application, since that always
+    creates a new Resume row that no Application references yet).
+    """
+    apps = Application.query.filter_by(resume_id=resume.id).all()
+    if not apps:
+        return
+    now = utcnow()
+    for application in apps:
+        if not application.job:
+            continue
+        fresh_score = score_resume_for_job(resume.raw_text, application.job)["score"]
+        application.match_score = fresh_score
+        application.scored_at = now
+    db.session.commit()
+
+
 @candidate_bp.route("/api/resume-builder/save", methods=["POST"])
 @role_required("candidate")
 @limiter.limit(lambda: current_app.config.get("RATELIMIT_AUTHENTICATED", "120 per minute"))
@@ -351,8 +426,7 @@ def api_save_resume_builder():
             pass
 
     if target_job:
-        jd_text = " ".join(filter(None, [target_job.title, target_job.description, target_job.requirements]))
-        ats_result = score_resume(plain_text, jd_text)
+        ats_result = score_resume_for_job(plain_text, target_job)
     else:
         detected_category = predict_category(plain_text)
         reference_text = category_reference_text(detected_category) if detected_category else ""
@@ -364,13 +438,23 @@ def api_save_resume_builder():
         resume = Resume.query.filter_by(id=resume_id, candidate_id=current_user.id).first()
         if not resume:
             return jsonify({"status": "error", "message": "Resume not found"}), 404
+        content_changed = resume.raw_text != serialized_text
         resume.name = resume_name
         resume.target_role = target_role
         resume.raw_text = serialized_text
         resume.last_ats_score = ats_result["score"]
         resume.last_matched_keywords = ", ".join(ats_result.get("matched_keywords", []))
         resume.last_missing_keywords = ", ".join(ats_result.get("missing_keywords", []))
+        if content_changed:
+            # This resume row is edited in place (unlike Resume AI, which
+            # always creates a new row) — any Application already pinned to
+            # this resume_id now has a stale match_score, since scoring was
+            # computed against the old raw_text. Re-score just those rows;
+            # applications tied to other resumes of this candidate are
+            # unaffected.
+            _rescore_applications_for_resume(resume)
     else:
+        has_primary = Resume.query.filter_by(candidate_id=current_user.id, is_primary=True).first() is not None
         resume = Resume(
             candidate_id=current_user.id,
             source="builder",
@@ -380,6 +464,7 @@ def api_save_resume_builder():
             last_ats_score=ats_result["score"],
             last_matched_keywords=", ".join(ats_result.get("matched_keywords", [])),
             last_missing_keywords=", ".join(ats_result.get("missing_keywords", [])),
+            is_primary=not has_primary,
         )
         db.session.add(resume)
 
@@ -389,7 +474,7 @@ def api_save_resume_builder():
         "status": "success",
         "resume_id": resume.id,
         "ats_result": ats_result,
-        "updated_at": resume.created_at.strftime("%d %b %Y, %H:%M"),
+        "updated_at": (resume.updated_at or resume.created_at).strftime("%d %b %Y, %H:%M"),
     })
 
 
@@ -481,8 +566,7 @@ def api_analyze_live():
             pass
 
     if target_job:
-        jd_text = " ".join(filter(None, [target_job.title, target_job.description, target_job.requirements]))
-        ats_result = score_resume(plain_text, jd_text)
+        ats_result = score_resume_for_job(plain_text, target_job)
     elif custom_jd:
         ats_result = score_resume(plain_text, custom_jd)
     else:
@@ -504,6 +588,18 @@ def my_resumes():
     return render_template("candidate/my_resumes.html", resumes=resumes)
 
 
+@candidate_bp.route("/resumes/<int:resume_id>/set-primary", methods=["POST"])
+@role_required("candidate")
+def set_primary_resume(resume_id):
+    resume = Resume.query.filter_by(id=resume_id, candidate_id=current_user.id).first_or_404()
+    # Unset is_primary on all candidate resumes then set on this one
+    Resume.query.filter_by(candidate_id=current_user.id).update({"is_primary": False})
+    resume.is_primary = True
+    db.session.commit()
+    flash(f"'{resume.name or 'Resume'}' set as your primary resume.", "success")
+    return redirect(url_for("candidate.my_resumes"))
+
+
 @candidate_bp.route("/resumes/<int:resume_id>/duplicate", methods=["POST"])
 @role_required("candidate")
 def duplicate_resume(resume_id):
@@ -520,6 +616,7 @@ def duplicate_resume(resume_id):
         last_ats_score=original.last_ats_score,
         last_matched_keywords=original.last_matched_keywords,
         last_missing_keywords=original.last_missing_keywords,
+        is_primary=False,
     )
     db.session.add(copy_resume)
     db.session.commit()
@@ -531,9 +628,17 @@ def duplicate_resume(resume_id):
 @role_required("candidate")
 def delete_resume(resume_id):
     resume = Resume.query.filter_by(id=resume_id, candidate_id=current_user.id).first_or_404()
+    was_primary = resume.is_primary
     stored_name = resume.stored_filename
     db.session.delete(resume)
     db.session.commit()
+
+    if was_primary:
+        # Promote newest remaining resume to primary
+        remaining = Resume.query.filter_by(candidate_id=current_user.id).order_by(Resume.created_at.desc()).first()
+        if remaining:
+            remaining.is_primary = True
+            db.session.commit()
 
     # Reference-aware cleanup: delete physical file ONLY if no other resume uses it
     if stored_name:
@@ -559,12 +664,14 @@ def download_resume_pdf(resume_id):
     template = structured.get("template", "modern")
     pdf_buffer = build_structured_resume_pdf(structured, template=template)
 
-    safe_name = (structured.get("personal", {}).get("full_name") or resume.name or "resume").strip().replace(" ", "_")
+    raw_name = (structured.get("personal", {}).get("full_name") or resume.name or "Candidate").strip()
+    clean_parts = re.sub(r"[^\w\s-]", "", raw_name).split()
+    clean_name = "_".join(clean_parts) or "Candidate"
     return send_file(
         pdf_buffer,
         mimetype="application/pdf",
         as_attachment=True,
-        download_name=f"{safe_name}_resume.pdf",
+        download_name=f"Zentra_Resume_for_{clean_name}.pdf",
     )
 
 
@@ -576,12 +683,14 @@ def export_builder_pdf():
     template = data.get("template", "modern")
 
     pdf_buffer = build_structured_resume_pdf(resume_data, template=template)
-    safe_name = (resume_data.get("personal", {}).get("full_name") or "resume").strip().replace(" ", "_")
+    raw_name = (resume_data.get("personal", {}).get("full_name") or "Candidate").strip()
+    clean_parts = re.sub(r"[^\w\s-]", "", raw_name).split()
+    clean_name = "_".join(clean_parts) or "Candidate"
     return send_file(
         pdf_buffer,
         mimetype="application/pdf",
         as_attachment=True,
-        download_name=f"{safe_name}_resume.pdf",
+        download_name=f"Zentra_Resume_for_{clean_name}.pdf",
     )
 
 
@@ -620,6 +729,29 @@ def settings():
         for entry_type in CareerEntry.TYPES
     }
     return render_template("candidate/settings.html", form=form, career_entries=career_entries)
+
+
+@candidate_bp.route("/api/retouch-bio", methods=["POST"])
+@role_required("candidate")
+def api_retouch_bio():
+    data = request.get_json(silent=True) or {}
+    raw_bio = str(data.get("raw_bio", "")).strip()
+    headline = str(data.get("headline", "")).strip() or (current_user.headline or "")
+    skills_raw = str(data.get("skills", "")).strip() or (current_user.skills or "")
+    skills = [s.strip() for s in skills_raw.split(",") if s.strip()]
+    target_role = str(data.get("target_role", "")).strip() or (current_user.preferred_job_role or headline or "")
+
+    retouched_text, provider = ai_service.retouch_bio(
+        raw_bio=raw_bio,
+        headline=headline,
+        skills=skills,
+        target_role=target_role,
+    )
+    return jsonify({
+        "status": "success",
+        "retouched_bio": retouched_text,
+        "provider": provider,
+    })
 
 
 @candidate_bp.route("/applications")
@@ -754,9 +886,40 @@ def unsave_job(job_id):
 @role_required("candidate")
 def saved_jobs():
     saved = SavedJob.query.filter_by(candidate_id=current_user.id).order_by(SavedJob.created_at.desc()).all()
-    resume = Resume.query.filter_by(candidate_id=current_user.id).order_by(Resume.created_at.desc()).first()
-    items = [(item, score_resume(resume.raw_text, " ".join(filter(None, [item.job.description, item.job.requirements])))["score"] if resume else None) for item in saved]
+    resume = Resume.get_primary(current_user.id)
+    items = [(item, score_resume_for_job(resume.raw_text, item.job)["score"] if resume else None) for item in saved]
     return render_template("candidate/saved_jobs.html", saved_jobs=items)
+
+
+def _parse_career_date_order(start_str: str, end_str: str) -> bool:
+    """Returns False if end_str is strictly before start_str."""
+    if not start_str or not end_str:
+        return True
+    
+    s_clean = start_str.strip().lower()
+    e_clean = end_str.strip().lower()
+
+    if any(w in e_clean for w in ("present", "current", "ongoing", "now", "till date", "til date")):
+        return True
+
+    s_years = re.findall(r"\b(19\d\d|20\d\d)\b", start_str)
+    e_years = re.findall(r"\b(19\d\d|20\d\d)\b", end_str)
+
+    if s_years and e_years:
+        s_yr = int(s_years[-1])
+        e_yr = int(e_years[-1])
+        if e_yr < s_yr:
+            return False
+        if e_yr == s_yr:
+            months = {
+                "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+                "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+            }
+            s_mo = next((m_val for m_k, m_val in months.items() if m_k in s_clean), None)
+            e_mo = next((m_val for m_k, m_val in months.items() if m_k in e_clean), None)
+            if s_mo and e_mo and e_mo < s_mo:
+                return False
+    return True
 
 
 @candidate_bp.route("/profile/career-entry", methods=["POST"])
@@ -764,25 +927,55 @@ def saved_jobs():
 def add_career_entry():
     entry_type = (request.form.get("entry_type") or "").strip()
     title = (request.form.get("title") or "").strip()
+    organization = (request.form.get("organization") or "").strip() or None
+    start_date = (request.form.get("start_date") or "").strip() or None
+    end_date = (request.form.get("end_date") or "").strip() or None
+    location = (request.form.get("entry_location") or "").strip() or None
+    description = (request.form.get("description") or "").strip() or None
+    credential_url = (request.form.get("credential_url") or "").strip() or None
+
     if entry_type not in CareerEntry.TYPES or not title:
         flash("Choose an entry type and enter its title before saving.", "error")
-        return redirect(url_for("candidate.settings"))
+        return redirect(url_for("candidate.settings", step=3) + "#career")
+
+    if len(title) < 2:
+        flash("Title must be at least 2 characters.", "error")
+        return redirect(url_for("candidate.settings", step=3) + "#career")
+
+    if entry_type != "project" and (not organization or len(organization) < 2):
+        flash("Organisation / Institution is required and must be at least 2 characters.", "error")
+        return redirect(url_for("candidate.settings", step=3) + "#career")
+
+    if start_date and end_date and not _parse_career_date_order(start_date, end_date):
+        flash(f"Invalid dates: End date ('{end_date}') cannot be earlier than start date ('{start_date}').", "error")
+        return redirect(url_for("candidate.settings", step=3) + "#career")
+
+    # Prevent duplicate career entries
+    existing = CareerEntry.query.filter(
+        CareerEntry.candidate_id == current_user.id,
+        CareerEntry.entry_type == entry_type,
+        db.func.lower(CareerEntry.title) == title.lower(),
+        db.func.lower(db.func.coalesce(CareerEntry.organization, '')) == (organization or '').lower(),
+    ).first()
+    if existing:
+        flash(f"This {entry_type} entry ('{title}') is already added to your profile.", "error")
+        return redirect(url_for("candidate.settings", step=3) + "#career")
 
     entry = CareerEntry(
         candidate_id=current_user.id,
         entry_type=entry_type,
         title=title,
-        organization=(request.form.get("organization") or "").strip() or None,
-        location=(request.form.get("entry_location") or "").strip() or None,
-        start_date=(request.form.get("start_date") or "").strip() or None,
-        end_date=(request.form.get("end_date") or "").strip() or None,
-        description=(request.form.get("description") or "").strip() or None,
-        credential_url=(request.form.get("credential_url") or "").strip() or None,
+        organization=organization,
+        location=location,
+        start_date=start_date,
+        end_date=end_date,
+        description=description,
+        credential_url=credential_url,
     )
     db.session.add(entry)
     db.session.commit()
     flash(f"{entry_type.title()} added to your profile.", "success")
-    return redirect(url_for("candidate.settings") + "#career")
+    return redirect(url_for("candidate.settings", step=3) + "#career")
 
 
 @candidate_bp.route("/profile/career-entry/<int:entry_id>/delete", methods=["POST"])
@@ -792,7 +985,7 @@ def delete_career_entry(entry_id):
     db.session.delete(entry)
     db.session.commit()
     flash("Career entry removed.", "success")
-    return redirect(url_for("candidate.settings") + "#career")
+    return redirect(url_for("candidate.settings", step=3) + "#career")
 
 
 @candidate_bp.route("/jobs/<int:job_id>/apply", methods=["POST"])
@@ -805,11 +998,12 @@ def apply(job_id):
         flash("This job is no longer accepting applications.", "error")
         return redirect(url_for("main.job_detail", job_id=job.id))
 
-    resume = (
-        Resume.query.filter_by(candidate_id=current_user.id)
-        .order_by(Resume.created_at.desc())
-        .first()
-    )
+    # Server-side deadline enforcement — backend check independent of UI
+    if job.application_deadline and utcnow() > job.application_deadline:
+        flash("The application deadline for this job has passed.", "error")
+        return redirect(url_for("main.job_detail", job_id=job.id))
+
+    resume = Resume.get_primary(current_user.id)
     if resume is None:
         flash("Add a resume via Resume AI before applying.", "error")
         return redirect(url_for("candidate.resume_ai"))
@@ -819,14 +1013,14 @@ def apply(job_id):
         flash("You've already applied to this job.", "info")
         return redirect(url_for("main.job_detail", job_id=job.id))
 
-    jd_text = " ".join(filter(None, [job.description, job.requirements]))
-    result = score_resume(resume.raw_text, jd_text)
+    result = score_resume_for_job(resume.raw_text, job)
 
     application = Application(
         job_id=job.id,
         candidate_id=current_user.id,
         resume_id=resume.id,
         match_score=result["score"],
+        scored_at=utcnow(),
     )
     db.session.add(application)
     db.session.flush()
@@ -837,7 +1031,13 @@ def apply(job_id):
         message=f"Your application for {job.title} at {job.recruiter_profile.company_name} was submitted.",
         link=url_for("candidate.application_detail", application_id=application.id),
     ))
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash("You've already applied to this job.", "info")
+        return redirect(url_for("main.job_detail", job_id=job.id))
+
     flash("Application submitted.", "success")
     return redirect(url_for("main.job_detail", job_id=job.id))
 

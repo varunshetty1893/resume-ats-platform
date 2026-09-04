@@ -111,6 +111,42 @@ class FailedLoginTracker:
 login_tracker = FailedLoginTracker()
 
 
+def clean_profile_field(value, max_len):
+    """Sanitize a manually-pulled request.form value before saving.
+
+    Some profile-style routes build their models straight from
+    request.form instead of going through a WTForm, which means they skip
+    the length/control-character checks WTForms would normally provide.
+    Without an equivalent guard, a value longer than its DB column (e.g.
+    String(200)) raises an uncaught DataError on Postgres — a raw 500, not
+    a form error — and embedded control characters/newlines get stored
+    as-is. Truncate and strip control chars the same way a WTForm would.
+    """
+    value = (value or "").strip()
+    value = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", "", value)
+    return value[:max_len]
+
+
+def clean_website_url(value):
+    """Validate/sanitize a URL pulled straight from request.form, http(s) only.
+
+    Only accept http/https URLs; anything else (including no scheme at
+    all, or a javascript:/data: URI) is dropped rather than guessed at —
+    important for any field that later gets rendered as a raw <a href="...">.
+    """
+    from urllib.parse import urlparse
+    value = (value or "").strip()
+    if not value:
+        return ""
+    try:
+        parsed = urlparse(value)
+    except ValueError:
+        return ""
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return ""
+    return value[:255]
+
+
 def get_user_rate_limit_key():
     """Rate limit key combining authenticated user ID or remote IP."""
     from flask_login import current_user

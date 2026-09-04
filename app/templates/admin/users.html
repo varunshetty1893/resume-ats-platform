@@ -78,14 +78,9 @@
               </div>
             </td>
             <td class="px-6 py-4">
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ 'bg-slate-900 text-white' if user.is_admin else ('bg-indigo-50 text-indigo-700 border border-indigo-200' if user.is_recruiter else 'bg-slate-100 text-slate-700 border border-slate-200') }}">
-                {{ user.role | title }}
-              </span>
-              {% if user.is_recruiter and user.recruiter_profile %}
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ml-1.5 {{ 'bg-emerald-50 text-emerald-700 border border-emerald-200' if user.recruiter_profile.approval_status == 'approved' else ('bg-amber-50 text-amber-700 border border-amber-200' if user.recruiter_profile.approval_status == 'pending' else 'bg-rose-50 text-rose-700 border border-rose-200') }}">
-                {{ user.recruiter_profile.approval_status | title }}
-              </span>
-              {% endif %}
+              <div class="inline-flex items-center gap-1.5">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ 'bg-slate-900 text-white' if user.is_admin else ('bg-indigo-50 text-indigo-700 border border-indigo-200' if user.is_recruiter else 'bg-slate-100 text-slate-700 border border-slate-200') }}">{{ user.role | title }}</span>{% if user.is_recruiter and user.recruiter_profile %}{% if user.recruiter_profile.approval_status == 'approved' %}<span class="inline-flex items-center text-emerald-500" title="Verified Recruiter"><i class="bi bi-patch-check-fill text-sm"></i></span>{% else %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold {{ 'bg-amber-50 text-amber-700 border border-amber-200' if user.recruiter_profile.approval_status == 'pending' else 'bg-rose-50 text-rose-700 border border-rose-200' }}">{{ user.recruiter_profile.approval_status | title }}</span>{% endif %}{% endif %}
+              </div>
             </td>
             <td class="px-6 py-4">
               {% if user.is_active_account %}

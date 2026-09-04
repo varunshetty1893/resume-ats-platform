@@ -36,3 +36,6 @@ python-docx==1.1.2
 
 # Cryptography (pinned to avoid older CVEs)
 cryptography>=42.0.0
+
+# HTTP requests (AI providers)
+requests>=2.31.0

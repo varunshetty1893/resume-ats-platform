@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% set active_nav = 'profile' %}
-{% macro input_field(field, hint='', placeholder='') -%}
-<div><label class="block text-sm font-semibold text-slate-700 mb-1.5">{{ field.label.text }}</label>{% if hint %}<p class="text-xs text-slate-500 mb-2">{{ hint }}</p>{% endif %}{{ field(placeholder=placeholder, class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors") }}{% for error in field.errors %}<p class="text-xs text-rose-500 mt-1">{{ error }}</p>{% endfor %}</div>
+{% macro input_field(field, hint='', placeholder='', is_required=false) -%}
+<div><label class="block text-sm font-semibold text-slate-700 mb-1.5">{{ field.label.text }}{% if is_required %}<span class="text-rose-500 ml-0.5">*</span>{% endif %}</label>{% if hint %}<p class="text-xs text-slate-500 mb-2">{{ hint }}</p>{% endif %}{{ field(placeholder=placeholder, class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors") }}{% for error in field.errors %}<p class="text-xs text-rose-500 mt-1">{{ error }}</p>{% endfor %}</div>
+{%- endmacro %}
+{% macro select_field(field, hint='', is_required=false) -%}
+<div><label class="block text-sm font-semibold text-slate-700 mb-1.5">{{ field.label.text }}{% if is_required %}<span class="text-rose-500 ml-0.5">*</span>{% endif %}</label>{% if hint %}<p class="text-xs text-slate-500 mb-2">{{ hint }}</p>{% endif %}{{ field(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors cursor-pointer") }}{% for error in field.errors %}<p class="text-xs text-rose-500 mt-1">{{ error }}</p>{% endfor %}</div>
 {%- endmacro %}
 {% macro area_field(field, hint='', placeholder='') -%}
 <div><label class="block text-sm font-semibold text-slate-700 mb-1.5">{{ field.label.text }}</label>{% if hint %}<p class="text-xs text-slate-500 mb-2">{{ hint }}</p>{% endif %}{{ field(rows=5, placeholder=placeholder, class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors resize-y") }}</div>
@@ -15,11 +18,18 @@
   <div class="mt-8 grid lg:grid-cols-[240px_1fr] gap-6">
     <aside class="lg:sticky lg:top-24 h-fit bg-white border border-slate-200 rounded-2xl p-3">
       <p class="px-3 pt-2 pb-3 text-xs font-bold text-slate-400 uppercase tracking-wide">Your profile steps</p>
-      <button type="button" class="profile-step active" data-step="0"><span>1</span><div><b>Basic details</b><small>Photo and contact</small></div><i class="bi bi-check-circle-fill"></i></button>
-      <button type="button" class="profile-step" data-step="1"><span>2</span><div><b>Your story</b><small>Bio and skills</small></div></button>
-      <button type="button" class="profile-step" data-step="2"><span>3</span><div><b>Career highlights</b><small>Experience and projects</small></div></button>
-      <button type="button" class="profile-step" data-step="3"><span>4</span><div><b>Links</b><small>Show your work</small></div></button>
-      <button type="button" class="profile-step" data-step="4"><span>5</span><div><b>Job preferences</b><small>Find a better fit</small></div></button>
+
+      {% set step1_done = current_user.full_name and current_user.phone and current_user.location %}
+      {% set step2_done = current_user.bio and current_user.skills %}
+      {% set step3_done = (career_entries['education']|length > 0) %}
+      {% set step4_done = current_user.github_url or current_user.linkedin_url or current_user.portfolio_url %}
+      {% set step5_done = current_user.work_preference and current_user.experience_level %}
+
+      <button type="button" class="profile-step active" data-step="0"><span>1</span><div><b>Basic details</b><small>Photo and contact</small></div><i class="bi bi-check-circle-fill step-check {{ '' if step1_done else 'hidden' }}"></i></button>
+      <button type="button" class="profile-step" data-step="1"><span>2</span><div><b>Your story</b><small>Bio and skills</small></div><i class="bi bi-check-circle-fill step-check {{ '' if step2_done else 'hidden' }}"></i></button>
+      <button type="button" class="profile-step" data-step="2"><span>3</span><div><b>Career highlights</b><small>Education & experience</small></div><i class="bi bi-check-circle-fill step-check {{ '' if step3_done else 'hidden' }}"></i></button>
+      <button type="button" class="profile-step" data-step="3"><span>4</span><div><b>Links</b><small>Show your work</small></div><i class="bi bi-check-circle-fill step-check {{ '' if step4_done else 'hidden' }}"></i></button>
+      <button type="button" class="profile-step" data-step="4"><span>5</span><div><b>Job preferences</b><small>Find a better fit</small></div><i class="bi bi-check-circle-fill step-check {{ '' if step5_done else 'hidden' }}"></i></button>
       <div class="m-2 mt-4 bg-lavender rounded-xl p-3 text-xs text-slate-600"><i class="bi bi-shield-check text-indigo-600 mr-1"></i>Your information is only shared with recruiters when you apply.</div>
     </aside>
 
@@ -30,17 +40,91 @@
           <div class="relative shrink-0">{% if current_user.avatar_filename %}<img id="avatar-preview" src="{{ url_for('static', filename='uploads/' + current_user.avatar_filename) }}" class="w-28 h-28 rounded-full object-cover border-4 border-indigo-100" alt="Your profile photo">{% else %}<div id="avatar-fallback" class="w-28 h-28 rounded-full bg-ink text-white flex items-center justify-center text-3xl font-bold">{{ current_user.full_name[:1]|upper }}</div><img id="avatar-preview" class="hidden w-28 h-28 rounded-full object-cover border-4 border-indigo-100" alt="Your selected profile photo">{% endif %}<label for="{{ form.avatar.id }}" class="absolute -bottom-1 -right-1 w-9 h-9 rounded-full bg-indigo-600 text-white shadow flex items-center justify-center cursor-pointer hover:bg-indigo-700"><i class="bi bi-camera-fill"></i><span class="sr-only">Choose profile photo</span></label>{{ form.avatar(class_="hidden", onchange="previewAvatar(this)") }}</div>
           <div><h3 class="font-semibold">Add a friendly profile photo</h3><p id="photo-help" class="text-sm text-slate-500 mt-1 max-w-md">A clear head-and-shoulders photo helps recruiters recognise you. JPG, PNG, or WEBP works best.</p><button type="button" onclick="document.getElementById('{{ form.avatar.id }}').click()" class="mt-3 text-sm font-semibold text-indigo-600">Choose a photo</button></div>
         </div>
-        <div class="grid sm:grid-cols-2 gap-5 mt-7">{{ input_field(form.full_name, 'Use the name you want recruiters to see.', 'e.g. Priya Sharma') }}<div><label class="block text-sm font-semibold text-slate-700 mb-1.5">Email</label><div class="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm text-slate-500">{{ current_user.email }}</div><p class="text-xs text-slate-500 mt-2">To change your email, contact support.</p></div>{{ input_field(form.phone, 'Optional, but helpful for interview invitations.', '+91 98765 43210') }}{{ input_field(form.location, 'City and country is enough — no street address needed.', 'e.g. Bengaluru, India') }}<div class="sm:col-span-2">{{ input_field(form.headline, 'In one line, say what you do or what role you want.', 'e.g. Junior Data Analyst | Excel, SQL & Power BI') }}</div></div>
+        <div class="grid sm:grid-cols-2 gap-5 mt-7">{{ input_field(form.full_name, 'Use the name you want recruiters to see.', 'e.g. Priya Sharma', is_required=true) }}<div><label class="block text-sm font-semibold text-slate-700 mb-1.5">Email<span class="text-slate-400 font-normal ml-1">(verified)</span></label><div class="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm text-slate-500">{{ current_user.email }}</div><p class="text-xs text-slate-500 mt-2">To change your email, contact support.</p></div>{{ input_field(form.phone, 'Phone number for interview invitations.', '+91 98765 43210', is_required=true) }}{{ input_field(form.location, 'City and country is enough — no street address needed.', 'e.g. Bengaluru, India', is_required=true) }}<div class="sm:col-span-2">{{ input_field(form.headline, 'In one line, say what you do or what role you want.', 'e.g. Junior Data Analyst | Excel, SQL & Power BI', is_required=false) }}</div></div>
       </section>
-      <section class="profile-panel hidden bg-white border border-slate-200 rounded-2xl p-6 sm:p-8" data-panel="1"><p class="text-xs font-bold text-indigo-600 uppercase tracking-wide">Step 2 of 5</p><h2 class="text-xl font-bold mt-2">Tell your story in plain language</h2><p class="text-sm text-slate-500 mt-1">You don’t need formal writing. Focus on what you enjoy and what you are good at.</p><div class="mt-7 space-y-6">{{ area_field(form.bio, 'Aim for 2–4 short sentences. Mention your strengths and the role you are seeking.', 'Tell us what you enjoy doing, the kind of work you are good at, and the opportunity you want.') }}{{ input_field(form.skills, 'Separate skills with commas. Include tools, languages, and people skills.', 'e.g. Excel, Customer service, Python, Teamwork') }}<div class="bg-amber-50 border border-amber-100 rounded-xl p-4 text-sm text-amber-900"><i class="bi bi-lightbulb-fill mr-1"></i><b>Quick tip:</b> Add skills that appear in the job descriptions you like. This improves your ATS match.</div></div></section>
-      <section id="career" class="profile-panel hidden bg-white border border-slate-200 rounded-2xl p-6 sm:p-8" data-panel="2"><p class="text-xs font-bold text-indigo-600 uppercase tracking-wide">Step 3 of 5</p><h2 class="text-xl font-bold mt-2">Build your career history</h2><p class="text-sm text-slate-500 mt-1">Add each item separately. It will appear as a clean card on your profile.</p>
-        <div class="mt-7 grid sm:grid-cols-2 gap-4">
-          {% set card_types = [('education', 'Education', 'bi-mortarboard'), ('experience', 'Experience', 'bi-briefcase'), ('project', 'Project', 'bi-folder2-open'), ('certification', 'Certification', 'bi-patch-check')] %}
-          {% for type, label, icon in card_types %}<div class="rounded-xl border border-slate-200 p-4"><div class="flex items-start justify-between gap-3"><div class="flex items-center gap-2"><span class="w-9 h-9 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center"><i class="bi {{ icon }}"></i></span><div><h3 class="text-sm font-bold">{{ label }}</h3><p class="text-xs text-slate-500">{{ career_entries[type]|length }} added</p></div></div><button type="button" onclick="openCareerForm('{{ type }}', '{{ label }}')" class="text-sm font-bold text-indigo-600 hover:text-indigo-700"><i class="bi bi-plus-lg mr-1"></i>Add</button></div>{% for entry in career_entries[type] %}<div class="group mt-3 bg-slate-50 rounded-lg px-3 py-2.5"><div class="flex gap-2"><div class="min-w-0 flex-1"><p class="text-sm font-semibold truncate">{{ entry.title }}</p>{% if entry.organization %}<p class="text-xs text-slate-500 truncate">{{ entry.organization }}{% if entry.start_date or entry.end_date %} · {{ entry.start_date or '' }}{{ ' – ' if entry.start_date and entry.end_date else '' }}{{ entry.end_date or '' }}{% endif %}</p>{% endif %}</div><button type="submit" formaction="{{ url_for('candidate.delete_career_entry', entry_id=entry.id) }}" formmethod="POST" aria-label="Remove {{ entry.title }}" class="text-slate-300 hover:text-rose-500"><i class="bi bi-trash3"></i></button></div></div>{% endfor %}</div>{% endfor %}
+      <section class="profile-panel hidden bg-white border border-slate-200 rounded-2xl p-6 sm:p-8" data-panel="1">
+        <p class="text-xs font-bold text-indigo-600 uppercase tracking-wide">Step 2 of 5</p>
+        <h2 class="text-xl font-bold mt-2">Tell your story in plain language</h2>
+        <p class="text-sm text-slate-500 mt-1">You don’t need formal writing. Focus on what you enjoy and what you are good at.</p>
+        
+        <div class="mt-7 space-y-6">
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-sm font-semibold text-slate-700">{{ form.bio.label.text }}<span class="text-rose-500 ml-0.5">*</span></label>
+              <button type="button" id="ai-retouch-btn" onclick="retouchBioWithAI()" class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors border border-indigo-100 shadow-2xs">
+                <i class="bi bi-stars text-indigo-500"></i>
+                <span id="ai-retouch-label">AI Retouch</span>
+              </button>
+            </div>
+            <p class="text-xs text-slate-500 mb-2">Aim for 2–4 short sentences. Type rough notes or draft sentences, then use <b>AI Retouch</b> to elevate them.</p>
+            {{ form.bio(rows=5, placeholder="Tell us what you enjoy doing, the kind of work you are good at, and the opportunity you want...", class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors resize-y") }}
+            {% for error in form.bio.errors %}<p class="text-xs text-rose-500 mt-1">{{ error }}</p>{% endfor %}
+            <div id="ai-retouch-notice" class="hidden mt-2 p-2.5 rounded-lg bg-emerald-50 text-emerald-800 text-xs flex items-center justify-between border border-emerald-100">
+              <span class="inline-flex items-center gap-1.5 font-medium"><i class="bi bi-check2-circle text-emerald-600 text-sm"></i> <span id="ai-retouch-msg">Bio enhanced!</span></span>
+              <button type="button" onclick="undoAiRetouch()" class="text-xs underline text-emerald-700 hover:text-emerald-900 font-semibold">Undo</button>
+            </div>
+          </div>
+
+          {{ input_field(form.skills, 'Separate skills with commas. Include tools, languages, and people skills.', 'e.g. Excel, Customer service, Python, Teamwork', is_required=true) }}
+          <div class="bg-amber-50 border border-amber-100 rounded-xl p-4 text-sm text-amber-900">
+            <i class="bi bi-lightbulb-fill mr-1"></i><b>Quick tip:</b> Add skills that appear in the job descriptions you like. This improves your ATS match.
+          </div>
         </div>
       </section>
-      <section class="profile-panel hidden bg-white border border-slate-200 rounded-2xl p-6 sm:p-8" data-panel="3"><p class="text-xs font-bold text-indigo-600 uppercase tracking-wide">Step 4 of 5</p><h2 class="text-xl font-bold mt-2">Help recruiters see your work</h2><p class="text-sm text-slate-500 mt-1">Only add links you are comfortable sharing. You can skip any that do not apply.</p><div class="mt-7 space-y-5">{{ input_field(form.github_url, 'Useful for developers and technical projects.', 'https://github.com/your-name') }}{{ input_field(form.linkedin_url, 'Your public LinkedIn profile link.', 'https://linkedin.com/in/your-name') }}{{ input_field(form.portfolio_url, 'A website, Behance, Dribbble, or online portfolio.', 'https://yourportfolio.com') }}</div><div class="mt-7 bg-lavender rounded-xl p-4 text-sm text-slate-600"><i class="bi bi-info-circle text-indigo-600 mr-1"></i>Adding GitHub or LinkedIn improves your profile completion by 5% each.</div></section>
-      <section class="profile-panel hidden bg-white border border-slate-200 rounded-2xl p-6 sm:p-8" data-panel="4"><p class="text-xs font-bold text-indigo-600 uppercase tracking-wide">Step 5 of 5</p><h2 class="text-xl font-bold mt-2">Set your job preferences</h2><p class="text-sm text-slate-500 mt-1">This helps us show opportunities that fit your goals.</p><div class="mt-7 grid sm:grid-cols-2 gap-5">{{ input_field(form.preferred_job_role, '', 'e.g. UI/UX Designer') }}{{ input_field(form.preferred_location, '', 'e.g. Remote or Mumbai') }}{{ input_field(form.work_preference) }}{{ input_field(form.expected_salary, 'Optional — this is not shown publicly.', 'e.g. ₹6–8 LPA') }}{{ input_field(form.experience_level) }}</div><div class="mt-7 rounded-xl bg-emerald-50 border border-emerald-100 p-4 text-sm text-emerald-800"><i class="bi bi-check-circle-fill mr-1"></i><b>You’re nearly ready.</b> Save your profile, then check your resume against a job description.</div></section>
+      <section id="career" class="profile-panel hidden bg-white border border-slate-200 rounded-2xl p-6 sm:p-8" data-panel="2"><p class="text-xs font-bold text-indigo-600 uppercase tracking-wide">Step 3 of 5</p><h2 class="text-xl font-bold mt-2">Build your career history</h2><p class="text-sm text-slate-500 mt-1">Add your background information. <b>Education is required</b> to complete your profile.</p>
+        <div class="mt-7 grid sm:grid-cols-2 gap-4">
+          {% set card_types = [('education', 'Education', 'bi-mortarboard', true), ('experience', 'Experience', 'bi-briefcase', false), ('project', 'Project', 'bi-folder2-open', false), ('certification', 'Certification', 'bi-patch-check', false)] %}
+          {% for type, label, icon, is_req in card_types %}
+          <div class="rounded-xl border {% if is_req and not career_entries[type] %}border-indigo-200 bg-indigo-50/20{% else %}border-slate-200{% endif %} p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-center gap-2">
+                <span class="w-9 h-9 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center"><i class="bi {{ icon }}"></i></span>
+                <div>
+                  <div class="flex items-center gap-1.5">
+                    <h3 class="text-sm font-bold">{{ label }}</h3>
+                    {% if is_req %}<span class="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">Required</span>{% endif %}
+                  </div>
+                  <p class="text-xs text-slate-500">{{ career_entries[type]|length }} added</p>
+                </div>
+              </div>
+              <button type="button" onclick="openCareerForm('{{ type }}', '{{ label }}')" class="text-sm font-bold text-indigo-600 hover:text-indigo-700 cursor-pointer"><i class="bi bi-plus-lg mr-1"></i>Add</button>
+            </div>
+            {% for entry in career_entries[type] %}
+            <div class="group mt-3 bg-slate-50 rounded-lg px-3 py-2.5">
+              <div class="flex gap-2">
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-semibold truncate">{{ entry.title }}</p>
+                  {% if entry.organization %}<p class="text-xs text-slate-500 truncate">{{ entry.organization }}{% if entry.start_date or entry.end_date %} · {{ entry.start_date or '' }}{{ ' – ' if entry.start_date and entry.end_date else '' }}{{ entry.end_date or '' }}{% endif %}</p>{% endif %}
+                </div>
+                {% set del_url = url_for('candidate.delete_career_entry', entry_id=entry.id) %}
+                <button type="button" onclick="deleteCareerEntry('{{ del_url }}')" aria-label="Remove {{ entry.title }}" class="text-slate-300 hover:text-rose-500 cursor-pointer"><i class="bi bi-trash3"></i></button>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+      <section class="profile-panel hidden bg-white border border-slate-200 rounded-2xl p-6 sm:p-8" data-panel="3"><p class="text-xs font-bold text-indigo-600 uppercase tracking-wide">Step 4 of 5</p><h2 class="text-xl font-bold mt-2">Help recruiters see your work</h2><p class="text-sm text-slate-500 mt-1">Only add links you are comfortable sharing. You can skip any that do not apply.</p><div class="mt-7 space-y-5">{{ input_field(form.github_url, 'Useful for developers and technical projects.', 'https://github.com/your-name') }}{{ input_field(form.linkedin_url, 'Add any public profile (e.g. X / Twitter, LinkedIn, Kaggle, Medium, or other social profiles).', 'https://x.com/your-handle or https://linkedin.com/in/...') }}{{ input_field(form.portfolio_url, 'A website, Behance, Dribbble, or online portfolio.', 'https://yourportfolio.com') }}</div><div class="mt-7 bg-lavender rounded-xl p-4 text-sm text-slate-600"><i class="bi bi-info-circle text-indigo-600 mr-1"></i>Adding GitHub, portfolio, or other profile links improves your profile completion.</div></section>
+      <section class="profile-panel hidden bg-white border border-slate-200 rounded-2xl p-6 sm:p-8" data-panel="4">
+        <p class="text-xs font-bold text-indigo-600 uppercase tracking-wide">Step 5 of 5</p>
+        <h2 class="text-xl font-bold mt-2">Set your job preferences</h2>
+        <p class="text-sm text-slate-500 mt-1">This helps us show opportunities that fit your goals.</p>
+        
+        <div class="mt-7 grid sm:grid-cols-2 gap-5 items-start">
+          {{ input_field(form.preferred_job_role, '', 'e.g. UI/UX Designer', is_required=false) }}
+          {{ input_field(form.preferred_location, '', 'e.g. Remote or Mumbai', is_required=false) }}
+          {{ select_field(form.work_preference, '', is_required=true) }}
+          {{ select_field(form.experience_level, '', is_required=true) }}
+          <div class="sm:col-span-2">
+            {{ input_field(form.expected_salary, 'Optional — this is not shown publicly.', 'e.g. ₹6–8 LPA', is_required=false) }}
+          </div>
+        </div>
+        
+        <div class="mt-7 rounded-xl bg-emerald-50 border border-emerald-100 p-4 text-sm text-emerald-800">
+          <i class="bi bi-check-circle-fill mr-1"></i><b>You’re nearly ready.</b> Save your profile, then check your resume against a job description.
+        </div>
+      </section>
       <div class="flex items-center justify-between mt-5 bg-white border border-slate-200 rounded-xl p-4"><button id="previous-step" type="button" class="text-sm font-semibold text-slate-500 hover:text-ink invisible"><i class="bi bi-arrow-left mr-1"></i>Previous</button><span id="step-count" class="text-xs font-semibold text-slate-400">Step 1 of 5</span><button id="next-step" type="button" class="bg-ink text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-slate-800">Continue <i class="bi bi-arrow-right ml-1"></i></button>{{ form.submit(id="save-profile", class_="hidden bg-ink text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-slate-800 cursor-pointer", value="Save profile & see my next step") }}</div>
     </form>
   </div>
@@ -49,23 +133,338 @@
   <div class="bg-white max-w-xl mx-auto my-8 rounded-2xl shadow-xl overflow-hidden">
     <div class="flex items-center justify-between px-6 py-5 border-b border-slate-100"><div><p class="text-xs font-bold text-indigo-600 uppercase tracking-wide">Career history</p><h2 id="career-modal-title" class="text-xl font-bold mt-1">Add an entry</h2></div><button type="button" onclick="closeCareerForm()" aria-label="Close" class="w-9 h-9 rounded-full hover:bg-slate-100"><i class="bi bi-x-lg"></i></button></div>
     <form action="{{ url_for('candidate.add_career_entry') }}" method="POST" class="p-6 space-y-5">{{ form.csrf_token }}<input type="hidden" name="entry_type" id="entry-type">
-      <div><label id="entry-title-label" for="entry-title" class="block text-sm font-semibold text-slate-700 mb-1.5">Title</label><input required id="entry-title" name="title" class="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600" placeholder="Enter a title"></div>
-      <div><label id="organization-label" for="entry-organization" class="block text-sm font-semibold text-slate-700 mb-1.5">Organisation</label><input id="entry-organization" name="organization" class="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600" placeholder="Enter organisation name"></div>
-      <div class="grid sm:grid-cols-2 gap-4"><div><label class="block text-sm font-semibold text-slate-700 mb-1.5">Start date</label><input name="start_date" class="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600" placeholder="e.g. Aug 2022"></div><div><label class="block text-sm font-semibold text-slate-700 mb-1.5">End date</label><input name="end_date" class="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600" placeholder="e.g. May 2025 or Present"></div></div>
+      <div><label id="entry-title-label" for="entry-title" class="block text-sm font-semibold text-slate-700 mb-1.5">Title<span class="text-rose-500 ml-0.5">*</span></label><input required id="entry-title" name="title" class="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600" placeholder="Enter a title"></div>
+      <div><label id="organization-label" for="entry-organization" class="block text-sm font-semibold text-slate-700 mb-1.5">Organisation<span class="text-rose-500 ml-0.5">*</span></label><input required id="entry-organization" name="organization" class="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600" placeholder="Enter organisation name"></div>
+      <div class="grid sm:grid-cols-2 gap-4"><div><label class="block text-sm font-semibold text-slate-700 mb-1.5">Start date<span class="text-rose-500 ml-0.5">*</span></label><input required id="entry-start-date" name="start_date" class="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600" placeholder="e.g. Aug 2022"></div><div><label class="block text-sm font-semibold text-slate-700 mb-1.5">End date<span class="text-rose-500 ml-0.5">*</span></label><input required id="entry-end-date" name="end_date" class="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600" placeholder="e.g. May 2025 or Present"></div></div>
       <div><label class="block text-sm font-semibold text-slate-700 mb-1.5">Location <span class="font-normal text-slate-400">(optional)</span></label><input name="entry_location" class="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600" placeholder="e.g. Bengaluru, India"></div>
       <div><label class="block text-sm font-semibold text-slate-700 mb-1.5">Description <span class="font-normal text-slate-400">(optional)</span></label><textarea name="description" rows="3" class="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 resize-y" placeholder="Describe what you learned, made, or achieved."></textarea></div>
       <div><label class="block text-sm font-semibold text-slate-700 mb-1.5">Link <span class="font-normal text-slate-400">(optional)</span></label><input name="credential_url" type="url" class="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600" placeholder="https://..."></div>
       <div class="flex justify-end gap-3 pt-2"><button type="button" onclick="closeCareerForm()" class="text-sm font-semibold text-slate-600 px-4 py-2.5">Cancel</button><button class="bg-ink text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-slate-800"><i class="bi bi-plus-lg mr-1"></i>Add to profile</button></div>
     </form>
   </div>
-</div>
+<form id="delete-career-form" method="POST" class="hidden">{{ form.csrf_token }}</form>
+<div id="profile-metadata" data-education-count="{{ career_entries['education']|length }}" class="hidden"></div>
 {% endblock %}
-{% block extra_head %}<style>.profile-step{width:100%;display:flex;align-items:center;gap:.7rem;padding:.7rem .75rem;border-radius:.7rem;text-align:left;color:#64748b}.profile-step:hover{background:#f8fafc}.profile-step.active{background:#eef0ff;color:#3730a3}.profile-step>span{width:1.6rem;height:1.6rem;border:1px solid #cbd5e1;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0}.profile-step.active>span{border-color:#4338ca;background:#4338ca;color:white}.profile-step div{flex:1}.profile-step b,.profile-step small{display:block}.profile-step b{font-size:.82rem}.profile-step small{font-size:.7rem;color:#94a3b8}.profile-step i{font-size:.8rem;color:#4338ca}</style>{% endblock %}
+{% block extra_head %}<style>.profile-step{width:100%;display:flex;align-items:center;gap:.7rem;padding:.7rem .75rem;border-radius:.7rem;text-align:left;color:#64748b}.profile-step:hover{background:#f8fafc}.profile-step.active{background:#eef0ff;color:#3730a3}.profile-step>span{width:1.6rem;height:1.6rem;border:1px solid #cbd5e1;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0}.profile-step.active>span{border-color:#4338ca;background:#4338ca;color:white}.profile-step div{flex:1}.profile-step b,.profile-step small{display:block}.profile-step b{font-size:.82rem}.profile-step small{font-size:.7rem;color:#94a3b8}.profile-step i.step-check{font-size:.95rem;color:#10b981;margin-left:auto;flex-shrink:0}</style>{% endblock %}
 {% block scripts %}<script>
 let activeStep=0; const steps=[...document.querySelectorAll('.profile-step')], panels=[...document.querySelectorAll('.profile-panel')];
-function showStep(next){activeStep=Math.max(0,Math.min(4,next)); steps.forEach((step,i)=>step.classList.toggle('active',i===activeStep));panels.forEach((panel,i)=>panel.classList.toggle('hidden',i!==activeStep));document.getElementById('step-count').textContent='Step '+(activeStep+1)+' of 5';document.getElementById('previous-step').classList.toggle('invisible',activeStep===0);document.getElementById('next-step').classList.toggle('hidden',activeStep===4);document.getElementById('save-profile').classList.toggle('hidden',activeStep!==4);window.scrollTo({top:0,behavior:'smooth'});}
-steps.forEach((step,i)=>step.addEventListener('click',()=>showStep(i)));document.getElementById('next-step').addEventListener('click',()=>showStep(activeStep+1));document.getElementById('previous-step').addEventListener('click',()=>showStep(activeStep-1));
-function previewAvatar(input){if(!input.files[0])return;const img=document.getElementById('avatar-preview');img.src=URL.createObjectURL(input.files[0]);img.classList.remove('hidden');const fallback=document.getElementById('avatar-fallback');if(fallback)fallback.classList.add('hidden');document.getElementById('photo-help').textContent='Photo selected. Save your profile below to update it.';}
-function openCareerForm(type,label){document.getElementById('entry-type').value=type;document.getElementById('career-modal-title').textContent='Add '+label;document.getElementById('entry-title-label').textContent=type==='education'?'School or qualification':type==='experience'?'Job title':type==='project'?'Project name':'Certificate name';document.getElementById('organization-label').textContent=type==='education'?'School or university':type==='experience'?'Company or organisation':type==='project'?'Where you built it (optional)':'Issuing organisation';document.getElementById('career-modal').classList.remove('hidden');document.getElementById('entry-title').focus();}
+const educationCount = parseInt(document.getElementById('profile-metadata')?.dataset.educationCount || '0', 10);
+
+function updateLiveCheckmarks() {
+  const form = document.getElementById('profile-form');
+  if (!form) return;
+  
+  // Step 1: full_name, phone, location
+  const s1 = form.querySelector('[name="full_name"]')?.value.trim() &&
+             form.querySelector('[name="phone"]')?.value.trim() &&
+             form.querySelector('[name="location"]')?.value.trim();
+  const icon1 = steps[0]?.querySelector('.step-check');
+  if (icon1) icon1.classList.toggle('hidden', !s1);
+
+  // Step 2: bio, skills
+  const s2 = form.querySelector('[name="bio"]')?.value.trim() &&
+             form.querySelector('[name="skills"]')?.value.trim();
+  const icon2 = steps[1]?.querySelector('.step-check');
+  if (icon2) icon2.classList.toggle('hidden', !s2);
+
+  // Step 3: educationCount > 0
+  const icon3 = steps[2]?.querySelector('.step-check');
+  if (icon3) icon3.classList.toggle('hidden', !(educationCount > 0));
+
+  // Step 4: links — green tick if ANY one link is filled
+  const s4 = !!(form.querySelector('[name="github_url"]')?.value.trim() ||
+               form.querySelector('[name="linkedin_url"]')?.value.trim() ||
+               form.querySelector('[name="portfolio_url"]')?.value.trim());
+  const icon4 = steps[3]?.querySelector('.step-check');
+  if (icon4) icon4.classList.toggle('hidden', !s4);
+
+  // Step 5: work_preference, experience_level (required fields)
+  const s5 = !!(form.querySelector('[name="work_preference"]')?.value.trim() &&
+                form.querySelector('[name="experience_level"]')?.value.trim());
+  const icon5 = steps[4]?.querySelector('.step-check');
+  if (icon5) icon5.classList.toggle('hidden', !s5);
+}
+
+document.getElementById('profile-form')?.addEventListener('input', updateLiveCheckmarks);
+document.getElementById('profile-form')?.addEventListener('change', updateLiveCheckmarks);
+
+let originalBioText = '';
+
+async function retouchBioWithAI() {
+  const bioField = document.querySelector('[name="bio"]');
+  const btn = document.getElementById('ai-retouch-btn');
+  const label = document.getElementById('ai-retouch-label');
+  const notice = document.getElementById('ai-retouch-notice');
+  const noticeMsg = document.getElementById('ai-retouch-msg');
+  if (!bioField) return;
+
+  const rawBio = bioField.value.trim();
+  const headline = document.querySelector('[name="headline"]')?.value.trim() || '';
+  const skills = document.querySelector('[name="skills"]')?.value.trim() || '';
+  const targetRole = document.querySelector('[name="preferred_job_role"]')?.value.trim() || '';
+
+  originalBioText = bioField.value;
+
+  btn.disabled = true;
+  label.innerHTML = '<span class="inline-flex items-center gap-1.5"><i class="bi bi-arrow-repeat animate-spin text-indigo-600"></i> Polishing...</span>';
+
+  try {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const res = await fetch('/candidate/api/retouch-bio', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken,
+      },
+      body: JSON.stringify({
+        raw_bio: rawBio,
+        headline: headline,
+        skills: skills,
+        target_role: targetRole,
+      }),
+    });
+
+    const data = await res.json();
+    if (data.status === 'success' && data.retouched_bio) {
+      bioField.value = data.retouched_bio;
+      notice.classList.remove('hidden');
+      noticeMsg.textContent = 'Bio enhanced!';
+      updateLiveCheckmarks();
+    } else {
+      showStepWarning('Unable to retouch bio right now. Please try again.');
+    }
+  } catch (err) {
+    console.error(err);
+    showStepWarning('AI connection error. Please try again.');
+  } finally {
+    btn.disabled = false;
+    label.textContent = 'AI Retouch';
+  }
+}
+
+function undoAiRetouch() {
+  const bioField = document.querySelector('[name="bio"]');
+  const notice = document.getElementById('ai-retouch-notice');
+  if (bioField && originalBioText !== undefined) {
+    bioField.value = originalBioText;
+    notice.classList.add('hidden');
+    updateLiveCheckmarks();
+  }
+}
+
+function isRepetitiveMash(str) {
+  if (!str) return false;
+  // Only flag strings that are ENTIRELY one repeated character (e.g. 'aaaaaaa')
+  return /^(.)\1{5,}$/.test(str.trim());
+}
+
+function parseYearFromStr(str) {
+  if (!str) return null;
+  const s = str.trim().toLowerCase();
+  if (['present', 'current', 'ongoing', 'now', 'till date'].some(w => s.includes(w))) {
+    return 9999;
+  }
+  const match = str.match(/\b(19\d\d|20\d\d)\b/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+function validateStep(stepIdx) {
+  const form = document.getElementById('profile-form');
+  if (!form) return true;
+
+  if (stepIdx === 0) {
+    const fn = form.querySelector('[name="full_name"]')?.value.trim() || '';
+    const ph = form.querySelector('[name="phone"]')?.value.trim() || '';
+    const loc = form.querySelector('[name="location"]')?.value.trim() || '';
+    if (fn.length < 2 || isRepetitiveMash(fn)) {
+      form.querySelector('[name="full_name"]')?.focus();
+      showStepWarning('Please enter a valid full name (at least 2 letters).');
+      return false;
+    }
+    const digits = ph.replace(/\D/g, '');
+    if (digits.length < 7 || digits.length > 15) {
+      form.querySelector('[name="phone"]')?.focus();
+      showStepWarning('Please enter a valid phone number (7 to 15 digits, e.g. +91 98765 43210).');
+      return false;
+    }
+    if (loc.length < 2 || isRepetitiveMash(loc)) {
+      form.querySelector('[name="location"]')?.focus();
+      showStepWarning('Please enter a valid location (e.g. Bengaluru, India).');
+      return false;
+    }
+  } else if (stepIdx === 1) {
+    const bio = form.querySelector('[name="bio"]')?.value.trim() || '';
+    const sk = form.querySelector('[name="skills"]')?.value.trim() || '';
+    if (bio.length < 5 || isRepetitiveMash(bio)) {
+      form.querySelector('[name="bio"]')?.focus();
+      showStepWarning('About you is required. Please write at least a sentence about yourself.');
+      return false;
+    }
+    if (sk.length < 1 || isRepetitiveMash(sk)) {
+      form.querySelector('[name="skills"]')?.focus();
+      showStepWarning('Skills are required. Enter at least one skill (e.g. Python, SQL).');
+      return false;
+    }
+  } else if (stepIdx === 2) {
+    if (educationCount === 0) {
+      showStepWarning('Education is required. Please click "+ Add" on the Education card to continue.');
+      return false;
+    }
+  } else if (stepIdx === 3) {
+    const gh = form.querySelector('[name="github_url"]')?.value.trim() || '';
+    const li = form.querySelector('[name="linkedin_url"]')?.value.trim() || '';
+    const pf = form.querySelector('[name="portfolio_url"]')?.value.trim() || '';
+    const urlPattern = /^https?:\/\/.+/i;
+    if (gh && !urlPattern.test(gh)) {
+      form.querySelector('[name="github_url"]')?.focus();
+      showStepWarning('GitHub link must start with https:// (e.g. https://github.com/your-name)');
+      return false;
+    }
+    if (li && !urlPattern.test(li)) {
+      form.querySelector('[name="linkedin_url"]')?.focus();
+      showStepWarning('Profile link must start with https:// (e.g. https://x.com/your-handle or https://linkedin.com/in/...)');
+      return false;
+    }
+    if (pf && !urlPattern.test(pf)) {
+      form.querySelector('[name="portfolio_url"]')?.focus();
+      showStepWarning('Portfolio link must start with https:// (e.g. https://yourportfolio.com)');
+      return false;
+    }
+  } else if (stepIdx === 4) {
+    const wp = form.querySelector('[name="work_preference"]');
+    const el = form.querySelector('[name="experience_level"]');
+    if (!wp?.value.trim()) { wp?.focus(); showStepWarning('Please select your work preference.'); return false; }
+    if (!el?.value.trim()) { el?.focus(); showStepWarning('Please select your experience level.'); return false; }
+  }
+  return true;
+}
+
+function showStepWarning(msg) {
+  let toast = document.getElementById('step-warning-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'step-warning-toast';
+    toast.className = 'fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 border border-slate-700 transition-all duration-300 transform translate-y-0';
+    document.body.appendChild(toast);
+  }
+  toast.innerHTML = `<i class="bi bi-exclamation-circle-fill text-amber-400 text-sm"></i> <span>${msg}</span>`;
+  toast.style.opacity = '1';
+  toast.style.pointerEvents = 'auto';
+  clearTimeout(window._toastTimeout);
+  window._toastTimeout = setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.pointerEvents = 'none';
+  }, 4500);
+}
+
+function showStep(next){
+  if (next > activeStep) {
+    for (let i = activeStep; i < next; i++) {
+      if (!validateStep(i)) return;
+    }
+  }
+  activeStep=Math.max(0,Math.min(4,next)); 
+  steps.forEach((step,i)=>step.classList.toggle('active',i===activeStep));
+  panels.forEach((panel,i)=>panel.classList.toggle('hidden',i!==activeStep));
+  document.getElementById('step-count').textContent='Step '+(activeStep+1)+' of 5';
+  document.getElementById('previous-step').classList.toggle('invisible',activeStep===0);
+  document.getElementById('next-step').classList.toggle('hidden',activeStep===4);
+  document.getElementById('save-profile').classList.toggle('hidden',activeStep!==4);
+  updateLiveCheckmarks();
+  const formEl = document.getElementById('profile-form');
+  if (formEl) {
+    const rect = formEl.getBoundingClientRect();
+    if (rect.top < 60 || rect.top > 250) {
+      const targetY = window.pageYOffset + rect.top - 80;
+      window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
+    }
+  }
+}
+
+steps.forEach((step,i)=>step.addEventListener('click',()=>showStep(i)));
+document.getElementById('next-step').addEventListener('click',()=>showStep(activeStep+1));
+document.getElementById('previous-step').addEventListener('click',()=>showStep(activeStep-1));
+
+// Initialize step based on URL hash or ?step= parameter (e.g. after adding/deleting career entries)
+(function initStepFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const stepQ = params.get('step');
+  if (window.location.hash === '#career' || stepQ === '3') {
+    showStep(2);
+  } else if (stepQ) {
+    const s = parseInt(stepQ, 10) - 1;
+    if (!isNaN(s) && s >= 0 && s <= 4) {
+      showStep(s);
+    }
+  }
+})();
+
+document.getElementById('profile-form')?.addEventListener('submit', function(e) {
+  for (let i = 0; i <= 4; i++) {
+    if (!validateStep(i)) {
+      e.preventDefault();
+      showStep(i);
+      return;
+    }
+  }
+});
+
+function previewAvatar(input){
+  if(!input.files[0])return;
+  const img=document.getElementById('avatar-preview');
+  img.src=URL.createObjectURL(input.files[0]);
+  img.classList.remove('hidden');
+  const fallback=document.getElementById('avatar-fallback');
+  if(fallback)fallback.classList.add('hidden');
+  document.getElementById('photo-help').textContent='Photo selected. Save your profile below to update it.';
+}
+function openCareerForm(type,label){
+  document.getElementById('entry-type').value=type;
+  document.getElementById('career-modal-title').textContent='Add '+label;
+  document.getElementById('entry-title-label').innerHTML=(type==='education'?'School or qualification':type==='experience'?'Job title':type==='project'?'Project name':'Certificate name') + '<span class="text-rose-500 ml-0.5">*</span>';
+  document.getElementById('organization-label').innerHTML=(type==='education'?'School or university':type==='experience'?'Company or organisation':type==='project'?'Where you built it (optional)':'Issuing organisation') + (type==='project' ? '' : '<span class="text-rose-500 ml-0.5">*</span>');
+  document.getElementById('career-modal').classList.remove('hidden');
+  document.getElementById('entry-title').focus();
+}
 function closeCareerForm(){document.getElementById('career-modal').classList.add('hidden');}
+
+// Career Modal Form Client-side Validation
+document.querySelector('#career-modal form')?.addEventListener('submit', function(e) {
+  const title = document.getElementById('entry-title')?.value.trim() || '';
+  const org = document.getElementById('entry-organization')?.value.trim() || '';
+  const startDate = document.getElementById('entry-start-date')?.value.trim() || '';
+  const endDate = document.getElementById('entry-end-date')?.value.trim() || '';
+  const entryType = document.getElementById('entry-type')?.value || '';
+
+  if (title.length < 1 || isRepetitiveMash(title)) {
+    e.preventDefault();
+    showStepWarning('Please enter a valid title.');
+    document.getElementById('entry-title')?.focus();
+    return;
+  }
+
+  if (entryType !== 'project' && (org.length < 1 || isRepetitiveMash(org))) {
+    e.preventDefault();
+    showStepWarning('Please enter a valid organisation / institution name.');
+    document.getElementById('entry-organization')?.focus();
+    return;
+  }
+
+  const startYr = parseYearFromStr(startDate);
+  const endYr = parseYearFromStr(endDate);
+  if (startYr !== null && endYr !== null && endYr < startYr) {
+    e.preventDefault();
+    showStepWarning(`End date ('${endDate}') cannot be earlier than start date ('${startDate}').`);
+    document.getElementById('entry-end-date')?.focus();
+    return;
+  }
+});
+
+function deleteCareerEntry(url) {
+  const delForm = document.getElementById('delete-career-form');
+  if (delForm) {
+    delForm.action = url;
+    delForm.submit();
+  }
+}
 </script>{% endblock %}

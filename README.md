@@ -52,7 +52,7 @@ re-run any time.
 
 Default admin login (change the password after first login):
 ```
-admin@zentra.example.com / ChangeMe123!
+admin@zentra.example.com / Admin@123
 ```
 
 ## Folder structure

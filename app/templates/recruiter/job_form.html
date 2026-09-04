@@ -10,36 +10,112 @@
   {% endif %}
   <h1 class="text-3xl font-extrabold tracking-tight mb-8">{{ 'Edit job' if editing else 'Post a job' }}</h1>
 
-  <form method="POST" class="bg-white border border-slate-200 rounded-2xl p-8 space-y-5">
+  <form method="POST" class="bg-white border border-slate-200 rounded-2xl p-8 space-y-5 shadow-sm">
     {{ form.hidden_tag() }}
+    
     <div>
-      <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.title.label.text }}</label>
-      {{ form.title(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors") }}
+      <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.title.label.text }} <span class="text-rose-500 font-bold">*</span></label>
+      {{ form.title(required=True, class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="e.g. Senior Frontend Engineer") }}
+      {% for error in form.title.errors %}<p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>{% endfor %}
     </div>
+
     <div>
-      <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.description.label.text }}</label>
-      {{ form.description(rows=4, class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors resize-none") }}
+      <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.description.label.text }} <span class="text-rose-500 font-bold">*</span></label>
+      {{ form.description(required=True, rows=4, class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors resize-none", placeholder="Describe the mission, impact, and overview of the role…") }}
+      {% for error in form.description.errors %}<p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>{% endfor %}
     </div>
+
     <div>
-      <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.responsibilities.label.text }}</label>
-      {{ form.responsibilities(rows=4, class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors resize-none") }}
+      <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.responsibilities.label.text }} <span class="text-slate-400 font-normal">(optional)</span></label>
+      {{ form.responsibilities(rows=4, class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors resize-none", placeholder="Key day-to-day duties and deliverables…") }}
+      {% for error in form.responsibilities.errors %}<p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>{% endfor %}
     </div>
+
     <div>
-      <label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.requirements.label.text }}</label>
-      {{ form.requirements(rows=4, class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors resize-none") }}
+      <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.requirements.label.text }} <span class="text-slate-400 font-normal">(optional)</span></label>
+      {{ form.requirements(rows=4, class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors resize-none", placeholder="Years of experience, degrees, certifications, or other qualifications…") }}
+      {% for error in form.requirements.errors %}<p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>{% endfor %}
     </div>
+
+    <div class="rounded-xl border border-indigo-100 bg-indigo-50/40 p-4 space-y-4">
+      <p class="text-[11px] font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
+        <i class="bi bi-stars"></i>Used by Zentra AI for candidate matching
+      </p>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.required_skills_raw.label.text }} <span class="text-rose-500 font-bold">*</span></label>
+        {{ form.required_skills_raw(required=True, class_="w-full bg-white border border-slate-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-colors", placeholder="e.g. AWS, Terraform, Kubernetes, Python") }}
+        <p class="text-[11px] text-slate-500 mt-1.5">Comma-separated. This drives the Skills Match score recruiters and candidates see — be specific rather than relying on the description above.</p>
+        {% for error in form.required_skills_raw.errors %}<p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>{% endfor %}
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.preferred_skills_raw.label.text }} <span class="text-slate-400 font-normal">(optional)</span></label>
+        {{ form.preferred_skills_raw(class_="w-full bg-white border border-slate-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-colors", placeholder="e.g. Datadog, Go, GCP") }}
+        <p class="text-[11px] text-slate-500 mt-1.5">Nice-to-have skills that give candidates a small boost but aren't dealbreakers.</p>
+        {% for error in form.preferred_skills_raw.errors %}<p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>{% endfor %}
+      </div>
+    </div>
+
     <div class="grid sm:grid-cols-3 gap-4">
-      <div><label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.job_type.label.text }}</label>{{ form.job_type(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors") }}</div>
-      <div><label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.work_mode.label.text }}</label>{{ form.work_mode(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors") }}</div>
-      <div><label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.experience_level.label.text }}</label>{{ form.experience_level(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors") }}</div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.job_type.label.text }} <span class="text-rose-500 font-bold">*</span></label>
+        {{ form.job_type(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors") }}
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.work_mode.label.text }} <span class="text-rose-500 font-bold">*</span></label>
+        {{ form.work_mode(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors") }}
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.experience_level.label.text }} <span class="text-rose-500 font-bold">*</span></label>
+        {{ form.experience_level(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors") }}
+      </div>
     </div>
+
     <div class="grid sm:grid-cols-3 gap-4">
-      <div><label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.location.label.text }}</label>{{ form.location(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="Bengaluru, Hybrid") }}</div>
-      <div><label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.salary_min.label.text }}</label>{{ form.salary_min(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors") }}</div>
-      <div><label class="block text-xs font-semibold text-slate-500 mb-1.5">{{ form.salary_max.label.text }}</label>{{ form.salary_max(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors") }}</div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.location.label.text }} <span class="text-slate-400 font-normal">(optional)</span></label>
+        {{ form.location(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="Bengaluru, Hybrid") }}
+        {% for error in form.location.errors %}<p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>{% endfor %}
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.salary_min.label.text }} <span class="text-slate-400 font-normal">(optional)</span></label>
+        {{ form.salary_min(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="12") }}
+        {% for error in form.salary_min.errors %}<p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>{% endfor %}
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.salary_max.label.text }} <span class="text-slate-400 font-normal">(optional)</span></label>
+        {{ form.salary_max(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors", placeholder="24") }}
+        {% for error in form.salary_max.errors %}<p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>{% endfor %}
+      </div>
     </div>
-    <div class="flex items-center gap-3">
-      {{ form.submit(value=('Save changes' if editing else 'Post job'), class_="bg-ink text-white text-sm font-semibold py-3 px-8 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer") }}
+
+    <div>
+      <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+        {{ form.application_deadline.label.text }}
+        {% if not editing %}<span class="text-rose-500 font-bold">*</span>{% else %}<span class="text-slate-400 font-normal">(leave blank to keep current)</span>{% endif %}
+      </label>
+      {% if editing and job.application_deadline %}
+      <p class="text-xs text-slate-500 mb-1.5">
+        Current deadline: <b>{{ job.application_deadline.strftime('%d %b %Y, %H:%M') }} UTC</b>
+        {% if job.application_deadline < now %}<span class="ml-1 text-rose-500 font-semibold">(expired)</span>{% endif %}
+      </p>
+      {% endif %}
+      {{ form.application_deadline(
+          class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors",
+          **({'required': True} if not editing else {})
+      ) }}
+      {% for error in form.application_deadline.errors %}<p class="text-xs text-rose-500 mt-1 font-medium">{{ error }}</p>{% endfor %}
+      <p class="text-xs text-slate-400 mt-1">Date and time are in UTC. After this deadline, candidates cannot submit new applications.</p>
+    </div>
+
+    <div>
+      <label class="block text-xs font-semibold text-slate-700 mb-1.5">{{ form.status.label.text }}</label>
+      {{ form.status(class_="w-full bg-lavender border border-transparent rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-colors") }}
+    </div>
+
+    <div class="flex items-center gap-3 pt-3">
+      {{ form.submit(value=('Save changes' if editing else 'Post job'), class_="bg-ink text-white text-sm font-semibold py-3 px-8 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer shadow-sm") }}
       {% if editing %}
       <a href="{{ url_for('recruiter.dashboard') }}" class="text-sm font-semibold text-slate-500 hover:text-ink transition-colors">Cancel</a>
       {% endif %}
@@ -47,4 +123,3 @@
   </form>
 </div>
 {% endblock %}
-

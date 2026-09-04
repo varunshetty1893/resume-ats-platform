@@ -1,4 +1,4 @@
-from datetime import datetime
+from app.utils.time import utcnow
 
 from app import db
 
@@ -10,6 +10,6 @@ class ApplicationEvent(db.Model):
     application_id = db.Column(db.Integer, db.ForeignKey("applications.id"), nullable=False)
     status = db.Column(db.String(30), nullable=False)
     note = db.Column(db.String(255), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
 
     application = db.relationship("Application", back_populates="events")

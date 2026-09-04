@@ -49,6 +49,9 @@ class MockFailingProvider(BaseAIProvider):
     def generate_summary(self, headline, skills, experience_snippets, target_role=""):
         return None
 
+    def retouch_bio(self, raw_bio, headline="", skills=None, target_role=""):
+        return None
+
     def explain_match(self, resume_text, jd_text, ats_score, matched_skills, missing_skills):
         return None
 
@@ -78,6 +81,9 @@ class MockWorkingProvider(BaseAIProvider):
 
     def generate_summary(self, headline, skills, experience_snippets, target_role=""):
         return f"[{self._name.upper()}] Executive summary for {headline}."
+
+    def retouch_bio(self, raw_bio, headline="", skills=None, target_role=""):
+        return f"[{self._name.upper()}] Polished bio based on: {raw_bio}"
 
     def explain_match(self, resume_text, jd_text, ats_score, matched_skills, missing_skills):
         return {"overview": f"[{self._name.upper()}] Match explanation"}
@@ -207,6 +213,27 @@ class TestAIProviderCascade(unittest.TestCase):
         res, provider = service.improve_bullet("made redis cache layer", "Senior Engineer", "Scale")
         self.assertEqual(provider, "local")
         self.assertTrue(res.startswith("Engineered redis cache layer"))
+
+    def test_11_retouch_bio_cascade(self):
+        """Scenario 11: Retouch bio cascades Gemini -> Groq -> Local fallback correctly."""
+        # 1. Gemini working
+        s1 = AIService(gemini_provider=MockWorkingProvider("gemini"), groq_provider=MockWorkingProvider("groq"))
+        res, provider = s1.retouch_bio("i like python and django", headline="Backend Dev", skills=["Python", "Django"])
+        self.assertEqual(provider, "gemini")
+        self.assertIn("Polished bio", res)
+
+        # 2. Gemini fails -> Groq succeeds
+        s2 = AIService(gemini_provider=MockFailingProvider("gemini", failure_type="rate_limit"), groq_provider=MockWorkingProvider("groq"))
+        res, provider = s2.retouch_bio("i build mobile apps with flutter", headline="Mobile Dev", skills=["Flutter"])
+        self.assertEqual(provider, "groq")
+        self.assertIn("Polished bio", res)
+
+        # 3. Both external fail -> Local fallback
+        s3 = AIService(gemini_provider=MockFailingProvider("gemini"), groq_provider=MockFailingProvider("groq"))
+        res, provider = s3.retouch_bio("frontend web dev react", headline="Frontend Engineer", skills=["React", "TypeScript"])
+        self.assertEqual(provider, "local")
+        self.assertIn("Frontend Engineer", res)
+        self.assertIn("React", res)
 
 
 if __name__ == "__main__":
