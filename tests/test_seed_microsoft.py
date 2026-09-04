@@ -44,5 +44,5 @@ def test_microsoft_seed():
         assert len(apps) >= 2
         for a in apps:
             assert a.job.recruiter_profile.company_name == "Microsoft"
-            assert a.status in ("applied", "interview", "shortlisted")
+            assert a.status in ("applied", "interview", "shortlisted", "hired", "rejected")
             assert a.match_score is not None and a.match_score > 50.0

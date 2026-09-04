@@ -169,7 +169,26 @@ def resume_ai():
                 }
             elif form.jd_text.data and form.jd_text.data.strip():
                 jd_text = form.jd_text.data.strip()
-                result = score_resume(resume_text, jd_text)
+                jd_lower = jd_text.lower()
+                matched_job = None
+                for j in active_jobs:
+                    if j.title and len(j.title) >= 6 and j.title.lower() in jd_lower:
+                        matched_job = j
+                        break
+                    desc_snippet = (j.description or "").strip()[:80].lower()
+                    if desc_snippet and len(desc_snippet) >= 30 and desc_snippet in jd_lower:
+                        matched_job = j
+                        break
+
+                if matched_job:
+                    result = score_resume_for_job(resume_text, matched_job)
+                    result["target_job"] = {
+                        "id": matched_job.id,
+                        "title": matched_job.title,
+                        "company": matched_job.recruiter_profile.company_name if matched_job.recruiter_profile else "",
+                    }
+                else:
+                    result = score_resume(resume_text, jd_text)
             else:
                 detected_category = predict_category(resume_text)
                 reference_text = category_reference_text(detected_category) if detected_category else ""
