@@ -22,7 +22,7 @@
     </div>
 
     <div class="p-8 sm:p-10 flex flex-col justify-center">
-      <div class="relative bg-lavender rounded-lg p-1 flex mb-8" role="tablist">
+      <div id="auth-tabs" data-initial-mode="{{ 'signup' if signup_form.errors else 'login' }}" class="relative bg-lavender rounded-lg p-1 flex mb-8" role="tablist">
         <button type="button" id="tab-login" onclick="setMode('login')" class="relative z-10 flex-1 text-sm font-semibold py-2.5 rounded-md transition-colors text-ink">Login</button>
         <button type="button" id="tab-signup" onclick="setMode('signup')" class="relative z-10 flex-1 text-sm font-semibold py-2.5 rounded-md transition-colors text-slate-400">Sign up</button>
         <div id="tab-bg" class="absolute top-1 left-1 h-[calc(100%-8px)] w-[calc(50%-4px)] bg-white rounded-md shadow-sm transition-transform duration-200"></div>
@@ -131,8 +131,9 @@
     }
   }
 
-  {% if signup_form.errors %}
-  setMode('signup');
-  {% endif %}
+  const authTabs = document.getElementById('auth-tabs');
+  if (authTabs && authTabs.dataset.initialMode === 'signup') {
+    setMode('signup');
+  }
 </script>
 {% endblock %}
