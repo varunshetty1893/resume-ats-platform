@@ -3,6 +3,7 @@ from app.utils.time import utcnow
 from flask import Blueprint, render_template, request, current_app, abort, flash, redirect, url_for
 from flask_login import current_user
 from sqlalchemy import or_
+from sqlalchemy.orm import joinedload
 
 from app import db
 
@@ -73,7 +74,7 @@ def jobs():
     PER_PAGE = 12
 
     # ── Build filter query (active and unexpired) ─────────────────────────────
-    query = Job.query.join(Job.recruiter_profile).filter(
+    query = Job.query.options(joinedload(Job.recruiter_profile)).join(Job.recruiter_profile).filter(
         Job.status == Job.STATUS_ACTIVE,
         or_(Job.application_deadline.is_(None), Job.application_deadline >= utcnow())
     )
@@ -171,7 +172,7 @@ def company_detail(company_id):
     ).first_or_404()
 
     # Active, unexpired jobs posted by this company
-    company_jobs = Job.query.filter(
+    company_jobs = Job.query.options(joinedload(Job.recruiter_profile)).filter(
         Job.recruiter_profile_id == company.id,
         Job.status == Job.STATUS_ACTIVE,
         or_(Job.application_deadline.is_(None), Job.application_deadline >= utcnow())

@@ -89,7 +89,8 @@ def dashboard():
 def resume_ai():
     form = ATSCheckForm()
     active_jobs = (
-        Job.query.filter(
+        Job.query.options(joinedload(Job.recruiter_profile))
+        .filter(
             Job.status == Job.STATUS_ACTIVE,
             or_(Job.application_deadline.is_(None), Job.application_deadline >= utcnow()),
         )
@@ -782,7 +783,9 @@ def api_retouch_bio():
 @role_required("candidate")
 def applications():
     status = request.args.get("status", "all")
-    query = Application.query.filter_by(candidate_id=current_user.id)
+    query = Application.query.options(
+        joinedload(Application.job).joinedload(Job.recruiter_profile)
+    ).filter_by(candidate_id=current_user.id)
     if status != "all" and status in Application.STATUSES:
         query = query.filter_by(status=status)
     return render_template("candidate/applications.html", applications=query.order_by(Application.applied_at.desc()).all(), active_status=status)
@@ -909,7 +912,12 @@ def unsave_job(job_id):
 @candidate_bp.route("/saved-jobs")
 @role_required("candidate")
 def saved_jobs():
-    saved = SavedJob.query.filter_by(candidate_id=current_user.id).order_by(SavedJob.created_at.desc()).all()
+    saved = (
+        SavedJob.query.options(joinedload(SavedJob.job).joinedload(Job.recruiter_profile))
+        .filter_by(candidate_id=current_user.id)
+        .order_by(SavedJob.created_at.desc())
+        .all()
+    )
     resume = Resume.get_primary(current_user.id)
     items = [(item, score_resume_for_job(resume.raw_text, item.job)["score"] if resume else None) for item in saved]
     return render_template("candidate/saved_jobs.html", saved_jobs=items)
