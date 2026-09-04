@@ -11,6 +11,7 @@ from app.models.resume import Resume
 from app.models.saved_job import SavedJob
 from app.models.user import User
 from app.models.career_entry import CareerEntry
+from app.models.recruiter_profile import RecruiterProfile
 from app.models.support_ticket import SupportTicket, SupportTicketMessage
 from app.ml.job_matcher import rank_jobs_for_resume, match_breakdown, rank_and_explain_jobs
 from app.utils.security import limiter
@@ -69,20 +70,29 @@ def jobs():
     if not page or page < 1:
         page = 1
 
-    PER_PAGE = 10
+    PER_PAGE = 12
 
     # ── Build filter query (active and unexpired) ─────────────────────────────
-    query = Job.query.filter(
+    query = Job.query.join(Job.recruiter_profile).filter(
         Job.status == Job.STATUS_ACTIVE,
         or_(Job.application_deadline.is_(None), Job.application_deadline >= utcnow())
     )
 
     keyword = request.args.get("q", "").strip()
     if keyword:
-        query = query.filter(or_(
-            Job.title.ilike(f"%{keyword}%"), Job.description.ilike(f"%{keyword}%"),
-            Job.requirements.ilike(f"%{keyword}%"), Job.location.ilike(f"%{keyword}%"),
-        ))
+        tokens = [t for t in keyword.split() if t]
+        for token in tokens:
+            t_pat = f"%{token}%"
+            query = query.filter(or_(
+                RecruiterProfile.company_name.ilike(t_pat),
+                Job.title.ilike(t_pat),
+                Job.required_skills_raw.ilike(t_pat),
+                Job.preferred_skills_raw.ilike(t_pat),
+                Job.description.ilike(t_pat),
+                Job.requirements.ilike(t_pat),
+                Job.responsibilities.ilike(t_pat),
+                Job.location.ilike(t_pat),
+            ))
 
     levels = request.args.getlist("experience")
     if levels:
@@ -152,6 +162,37 @@ def job_detail(job_id):
 
     is_saved = current_user.is_authenticated and current_user.is_candidate and SavedJob.query.filter_by(candidate_id=current_user.id, job_id=job.id).first() is not None
     return render_template("job_detail.html", job=job, breakdown=breakdown, is_saved=is_saved)
+
+
+@main_bp.route("/companies/<int:company_id>")
+def company_detail(company_id):
+    company = RecruiterProfile.query.filter_by(
+        id=company_id, approval_status=RecruiterProfile.STATUS_APPROVED
+    ).first_or_404()
+
+    # Active, unexpired jobs posted by this company
+    company_jobs = Job.query.filter(
+        Job.recruiter_profile_id == company.id,
+        Job.status == Job.STATUS_ACTIVE,
+        or_(Job.application_deadline.is_(None), Job.application_deadline >= utcnow())
+    ).order_by(Job.created_at.desc()).all()
+
+    # ATS scoring for logged-in candidate
+    resume_text = _latest_resume_text()
+    ranked, match_explanations = rank_and_explain_jobs(resume_text, company_jobs)
+
+    saved_job_ids = set()
+    if current_user.is_authenticated and current_user.is_candidate:
+        saved_job_ids = {item.job_id for item in SavedJob.query.filter_by(candidate_id=current_user.id).all()}
+
+    return render_template(
+        "company_detail.html",
+        company=company,
+        ranked_jobs=ranked,
+        total_jobs_count=len(company_jobs),
+        match_explanations=match_explanations,
+        saved_job_ids=saved_job_ids,
+    )
 
 
 def _latest_resume_text():

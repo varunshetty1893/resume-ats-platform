@@ -141,10 +141,18 @@
         </button>
       </div>
 
-      <p class="text-sm text-slate-500 my-5">
-        <b class="text-ink">{{ pagination.total }}</b> job{{ 's' if pagination.total != 1 else '' }} found{% if current_user.is_authenticated and current_user.is_candidate %} · ranked for your resume{% endif %}
-        {% if pagination.pages > 1 %}<span class="text-slate-400"> · page {{ current_page }} of {{ pagination.pages }}</span>{% endif %}
-      </p>
+      <div class="flex items-center justify-between gap-3 my-5 flex-wrap">
+        <p class="text-sm text-slate-500">
+          <b class="text-ink">{{ pagination.total }}</b> job{{ 's' if pagination.total != 1 else '' }} found{% if current_user.is_authenticated and current_user.is_candidate %} · ranked for your resume{% endif %}
+          {% if pagination.pages > 1 %}<span class="text-slate-400"> · page {{ current_page }} of {{ pagination.pages }}</span>{% endif %}
+        </p>
+        {% if request.args.get('q') %}
+        <a href="{{ url_for('main.jobs') }}" class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">
+          <span>Search: "{{ request.args.get('q') }}"</span>
+          <i class="bi bi-x-circle-fill text-slate-400 hover:text-slate-600"></i>
+        </a>
+        {% endif %}
+      </div>
 
       <div class="space-y-4">
         {% for job, score in ranked_jobs %}
@@ -160,7 +168,18 @@
                   <a href="{{ url_for('main.job_detail', job_id=job.id) }}" class="font-bold text-base sm:text-lg text-ink hover:text-indigo-600">
                     {{ job.title }}
                   </a>
-                  <p class="text-sm text-slate-600 mt-0.5 font-medium">{{ job.recruiter_profile.company_name if job.recruiter_profile else 'Company' }}</p>
+                  {% if job.recruiter_profile %}
+                  <p class="mt-0.5">
+                    <a href="{{ url_for('main.company_detail', company_id=job.recruiter_profile.id) }}" 
+                       onclick="event.stopPropagation();"
+                       class="text-sm font-semibold text-slate-700 hover:text-indigo-600 inline-flex items-center gap-1 transition-colors">
+                      <span>{{ job.recruiter_profile.company_name }}</span>
+                      <i class="bi bi-box-arrow-up-right text-[10px] text-slate-400"></i>
+                    </a>
+                  </p>
+                  {% else %}
+                  <p class="text-sm text-slate-600 mt-0.5 font-medium">Company</p>
+                  {% endif %}
                   <p class="text-xs text-slate-500 mt-1 flex items-center gap-1">
                     <i class="bi bi-geo-alt"></i>{{ job.location or 'Remote' }} · {{ job.work_mode|capitalize }}
                   </p>
