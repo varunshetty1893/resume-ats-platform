@@ -63,23 +63,6 @@
           </div>
           {{ login_form.submit(class_="w-full bg-ink text-white text-sm font-semibold py-3 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer") }}
         </form>
-
-        <div class="mt-6 pt-5 border-t border-slate-100">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Demo logins (click to auto-fill)</span>
-            <a href="{{ url_for('main.seed_demo') }}" class="text-[11px] font-medium text-indigo-600 hover:text-indigo-700">Sync database</a>
-          </div>
-          <div class="grid grid-cols-2 gap-2">
-            <button type="button" onclick="fillDemo('recruiter@microsoft.com', 'Microsoft@2026')" class="text-left p-2.5 rounded-lg border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 transition-all text-xs group">
-              <span class="font-semibold text-slate-800 group-hover:text-indigo-600 block flex items-center gap-1.5"><i class="bi bi-building"></i> MS Recruiter</span>
-              <span class="text-slate-400 text-[11px] block truncate font-mono">Microsoft@2026</span>
-            </button>
-            <button type="button" onclick="fillDemo('alex.chen@example.com', 'Candidate@123')" class="text-left p-2.5 rounded-lg border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 transition-all text-xs group">
-              <span class="font-semibold text-slate-800 group-hover:text-indigo-600 block flex items-center gap-1.5"><i class="bi bi-person-badge"></i> Candidate (Alex)</span>
-              <span class="text-slate-400 text-[11px] block truncate font-mono">Candidate@123</span>
-            </button>
-          </div>
-        </div>
       </div>
 
       <div id="form-signup" class="hidden">
@@ -145,19 +128,6 @@
       signupTab.classList.add('text-ink'); signupTab.classList.remove('text-slate-400');
       loginTab.classList.add('text-slate-400'); loginTab.classList.remove('text-ink');
       signupForm.classList.remove('hidden'); loginForm.classList.add('hidden');
-    }
-  }
-
-  function fillDemo(email, pass) {
-    setMode('login');
-    const emailInput = document.getElementById('login-email');
-    const passInput = document.getElementById('login-password');
-    if (emailInput) {
-      emailInput.value = email;
-      emailInput.focus();
-    }
-    if (passInput) {
-      passInput.value = pass;
     }
   }
 
