@@ -63,6 +63,7 @@
             <span class="text-[11px] font-bold text-indigo-900 block truncate">Saved Resume on Profile:</span>
             <span class="text-xs text-slate-600 block truncate">{{ primary_resume.name or 'Primary Resume' }}</span>
           </div>
+          <script type="application/json" id="saved-primary-resume-json">{{ primary_resume.raw_text|tojson|safe }}</script>
           <button type="button" onclick="loadSavedPrimaryResume()" class="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-colors shadow-2xs cursor-pointer">
             <i class="bi bi-file-earmark-text mr-1"></i>Load Saved Resume
           </button>
@@ -647,14 +648,18 @@
   }
 
   function loadSavedPrimaryResume() {
-    {% if primary_resume and primary_resume.raw_text %}
-    const text = {{ primary_resume.raw_text|tojson }};
-    const input = document.getElementById('resume-text-input');
-    if (input) {
-      input.value = text;
-      input.focus();
+    const dataEl = document.getElementById('saved-primary-resume-json');
+    if (!dataEl) return;
+    try {
+      const text = JSON.parse(dataEl.textContent);
+      const input = document.getElementById('resume-text-input');
+      if (input) {
+        input.value = text;
+        input.focus();
+      }
+    } catch (e) {
+      console.error('Error loading saved resume:', e);
     }
-    {% endif %}
   }
 </script>
 {% endblock %}
