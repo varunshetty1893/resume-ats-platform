@@ -111,29 +111,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-  function setMode(mode) {
-    const bg = document.getElementById('tab-bg');
-    const loginTab = document.getElementById('tab-login');
-    const signupTab = document.getElementById('tab-signup');
-    const loginForm = document.getElementById('form-login');
-    const signupForm = document.getElementById('form-signup');
-    if (mode === 'login') {
-      bg.style.transform = 'translateX(0)';
-      loginTab.classList.add('text-ink'); loginTab.classList.remove('text-slate-400');
-      signupTab.classList.add('text-slate-400'); signupTab.classList.remove('text-ink');
-      loginForm.classList.remove('hidden'); signupForm.classList.add('hidden');
-    } else {
-      bg.style.transform = 'translateX(100%)';
-      signupTab.classList.add('text-ink'); signupTab.classList.remove('text-slate-400');
-      loginTab.classList.add('text-slate-400'); loginTab.classList.remove('text-ink');
-      signupForm.classList.remove('hidden'); loginForm.classList.add('hidden');
-    }
-  }
-
-  const authTabs = document.getElementById('auth-tabs');
-  if (authTabs && authTabs.dataset.initialMode === 'signup') {
-    setMode('signup');
-  }
-</script>
+<script src="{{ url_for('static', filename='js/auth.js') }}"></script>
 {% endblock %}

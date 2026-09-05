@@ -168,6 +168,18 @@ def create_app(config_name=None):
         db.session.rollback()
         if _is_json_request():
             return jsonify({"status": "error", "error": "Internal Server Error", "message": "An unexpected error occurred. No diagnostic details leaked."}), 500
+    from flask import g
+    import base64
+    import secrets
+
+    @app.before_request
+    def set_csp_nonce():
+        g.csp_nonce = base64.b64encode(secrets.token_bytes(16)).decode("utf-8")
+
+    @app.context_processor
+    def inject_csp_nonce():
+        return dict(csp_nonce=getattr(g, "csp_nonce", ""))
+
     # --- Security Headers & Cache-Control Enforcement ---
     @app.after_request
     def set_security_and_cache_headers(response):
@@ -178,11 +190,19 @@ def create_app(config_name=None):
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
 
-        # Content-Security-Policy
+        # Content-Security-Policy (Strict allowlist - No wildcards, Nonce-protected)
+        nonce = getattr(g, "csp_nonce", "")
+        nonce_str = f"'nonce-{nonce}'" if nonce else ""
+        script_srcs = ["'self'", "https://cdn.jsdelivr.net"]
+        style_srcs = ["'self'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net"]
+        if nonce_str:
+            script_srcs.append(nonce_str)
+            style_srcs.append(nonce_str)
+
         csp_directives = [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
+            f"script-src {' '.join(script_srcs)}",
+            f"style-src {' '.join(style_srcs)}",
             "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:",
             "img-src 'self' data: https: blob:",
             "connect-src 'self' https://generativelanguage.googleapis.com https://api.groq.com",

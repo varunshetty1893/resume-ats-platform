@@ -1,8 +1,7 @@
+import re
 import pytest
 from app import create_app, db
 from app.models.user import User
-from app.models.job import Job
-from app.models.recruiter_profile import RecruiterProfile
 
 
 @pytest.fixture
@@ -18,20 +17,6 @@ def app():
 @pytest.fixture
 def client(app):
     return app.test_client()
-
-
-@pytest.fixture
-def test_candidate(app):
-    with app.app_context():
-        user = User(
-            full_name="Security Test Candidate",
-            email="candidate_sec@example.com",
-            role=User.ROLE_CANDIDATE,
-        )
-        user.set_password("Password123!")
-        db.session.add(user)
-        db.session.commit()
-        return user.id
 
 
 class TestOWASPSecurityRemediation:
@@ -59,6 +44,35 @@ class TestOWASPSecurityRemediation:
         assert "frame-ancestors 'none'" in csp
         assert "https://cdn.jsdelivr.net" in csp
         assert "https://fonts.googleapis.com" in csp
+
+    def test_forgot_password_csp_tightened_without_wildcard_or_unsafe_inline(self, client):
+        """Verify /auth/forgot-password CSP strictly lists trusted CDNs, uses nonces, and avoids wildcards."""
+        resp = client.get("/auth/forgot-password")
+        assert resp.status_code == 200
+
+        csp = resp.headers.get("Content-Security-Policy", "")
+        # Must not contain wildcard '*' in script-src or style-src
+        assert "script-src *" not in csp
+        assert "style-src *" not in csp
+        assert "default-src *" not in csp
+
+        # Must not use bare 'unsafe-inline' without nonce
+        assert "'unsafe-inline'" not in csp
+
+        # Must contain trusted sources only
+        assert "https://fonts.googleapis.com" in csp
+        assert "https://fonts.gstatic.com" in csp
+        assert "https://cdn.jsdelivr.net" in csp
+        assert "'nonce-" in csp
+
+        # Verify no inline <script> or <style> tags without src/external file on /auth/forgot-password
+        html = resp.data.decode("utf-8")
+        # Inline <script> without src or application/json type
+        inline_scripts = re.findall(r"<script(?![^>]*src=)(?![^>]*type=[\"']application/json[\"'])[^>]*>(.*?)</script>", html, re.DOTALL | re.IGNORECASE)
+        inline_styles = re.findall(r"<style[^>]*>(.*?)</style>", html, re.DOTALL | re.IGNORECASE)
+
+        assert len(inline_scripts) == 0, f"Found unexpected inline script: {inline_scripts}"
+        assert len(inline_styles) == 0, f"Found unexpected inline style: {inline_styles}"
 
     def test_cache_control_on_sensitive_and_auth_routes(self, client):
         """Verify sensitive routes return strict no-store, no-cache directives."""
@@ -95,18 +109,15 @@ class TestOWASPSecurityRemediation:
                 },
                 follow_redirects=True,
             )
-            # Response should safely render login page or bad request without 500 internal server error
             assert resp.status_code in (200, 400)
             assert b"Internal Server Error" not in resp.data
 
     def test_jobs_filter_validation_rejects_non_numeric_salary(self, client):
         """Verify non-numeric salary_min/salary_max are sanitized and ignored."""
-        # Payload matching ZAP scan
         resp = client.get("/jobs?salary_min=ZAP&salary_max=jobs&experience=entry&work_mode=remote&job_type=full_time")
         assert resp.status_code == 200
 
         html = resp.data.decode("utf-8")
-        # Ensure invalid strings 'ZAP' or 'jobs' are not reflected in salary input values
         assert 'name="salary_min" value="ZAP"' not in html
         assert 'name="salary_max" value="jobs"' not in html
 
