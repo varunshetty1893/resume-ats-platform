@@ -6,12 +6,55 @@
 <title>{% block title %}Zentra{% endblock %}</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230B0F19'/><text x='16' y='23' font-family='Inter,system-ui,sans-serif' font-size='20' font-weight='800' fill='white' text-anchor='middle'>Z</text></svg>">
 <script src="{{ url_for('static', filename='js/tailwind.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/tailwind.config.js') }}"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink: '#0B0F19',
+          indigo: { 50: '#EEF0FF', 100: '#E1E4FF', 600: '#4338CA', 700: '#3730A3' },
+          lavender: '#EEF1FC',
+        },
+      },
+    },
+  }
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; }
+  /* Sleek Minimalist Scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(99, 102, 241, 0.25) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9999px;
+    transition: background 0.2s ease;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #818cf8;
+  }
+  .grid-bg {
+    background-image: linear-gradient(#E1E4FF 1px, transparent 1px), linear-gradient(90deg, #E1E4FF 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .fade-up { animation: fadeUp .6s ease-out both; }
+  .fade-up-d1 { animation-delay: .08s; }
+  .fade-up-d2 { animation-delay: .16s; }
+  .fade-up-d3 { animation-delay: .24s; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+</style>
 {% block extra_head %}{% endblock %}
 <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
@@ -256,6 +299,61 @@
 
 {% block scripts %}{% endblock %}
 
-<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script>
+  function toggleProfileMenu() {
+    document.getElementById('profile-menu').classList.toggle('hidden');
+  }
+  document.addEventListener('click', function (e) {
+    const menu = document.getElementById('profile-menu');
+    const btn = document.getElementById('profile-menu-btn');
+    if (!menu || !btn) return;
+    if (!menu.contains(e.target) && !btn.contains(e.target)) {
+      menu.classList.add('hidden');
+    }
+  });
+
+  // Job status dropdown (used on Job Workspaces + Job Overview)
+  function closeAllStatusDropdowns(except) {
+    document.querySelectorAll('[data-status-dropdown]').forEach(function (root) {
+      if (root.id === except) return;
+      var panel = root.querySelector('[data-dd-panel]');
+      var chevron = root.querySelector('[data-dd-chevron]');
+      if (panel) panel.classList.add('hidden');
+      if (chevron) chevron.style.transform = '';
+      var btn = root.querySelector('button[aria-expanded]');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    });
+  }
+  function toggleStatusDropdown(id) {
+    var root = document.getElementById(id);
+    if (!root) return;
+    var panel = root.querySelector('[data-dd-panel]');
+    var chevron = root.querySelector('[data-dd-chevron]');
+    var btn = root.querySelector('button[aria-expanded]');
+    var willOpen = panel.classList.contains('hidden');
+    closeAllStatusDropdowns(id);
+    panel.classList.toggle('hidden', !willOpen);
+    if (chevron) chevron.style.transform = willOpen ? 'rotate(180deg)' : '';
+    if (btn) btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+  }
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('[data-status-dropdown]')) {
+      closeAllStatusDropdowns(null);
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeAllStatusDropdowns(null);
+  });
+
+  // Auto-dismiss toasts after 4s, with a quick fade+slide out
+  document.querySelectorAll('.toast').forEach(function (toast, i) {
+    toast.style.transition = 'opacity .25s ease, transform .25s ease';
+    setTimeout(function () {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(20px)';
+      setTimeout(function () { toast.remove(); }, 250);
+    }, 4000 + i * 300);
+  });
+</script>
 </body>
 </html>
