@@ -57,6 +57,7 @@ def public_profile(slug):
 
 @main_bp.route("/jobs")
 def jobs():
+    import re
     from flask import redirect, url_for, flash
     from app.models.admin_setting import AdminSetting
 
@@ -66,7 +67,6 @@ def jobs():
         return redirect(url_for("auth.login"))
 
     # ── Safe page number ──────────────────────────────────────────────────────
-    # type=int returns None for non-integer values (e.g. "abc", "-1.5")
     page = request.args.get("page", 1, type=int)
     if not page or page < 1:
         page = 1
@@ -79,7 +79,13 @@ def jobs():
         or_(Job.application_deadline.is_(None), Job.application_deadline >= utcnow())
     )
 
-    keyword = request.args.get("q", "").strip()
+    # ── Safe search query ─────────────────────────────────────────────────────
+    keyword = (request.args.get("q") or "").strip()
+    if len(keyword) > 100:
+        keyword = keyword[:100].strip()
+    if re.search(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", keyword):
+        keyword = ""
+
     if keyword:
         tokens = [t for t in keyword.split() if t]
         for token in tokens:
@@ -95,27 +101,64 @@ def jobs():
                 Job.location.ilike(t_pat),
             ))
 
-    levels = request.args.getlist("experience")
+    # ── Allowlist filter parameters ───────────────────────────────────────────
+    ALLOWED_EXPERIENCE = {"entry", "mid", "senior"}
+    ALLOWED_WORK_MODE = {"remote", "hybrid", "onsite"}
+    ALLOWED_JOB_TYPE = {"full_time", "part_time", "internship"}
+
+    raw_levels = request.args.getlist("experience")
+    levels = [lvl for lvl in raw_levels if lvl in ALLOWED_EXPERIENCE]
     if levels:
         query = query.filter(Job.experience_level.in_(levels))
-    modes = request.args.getlist("work_mode")
+
+    raw_modes = request.args.getlist("work_mode")
+    modes = [m for m in raw_modes if m in ALLOWED_WORK_MODE]
     if modes:
         query = query.filter(Job.work_mode.in_(modes))
-    job_types = request.args.getlist("job_type")
+
+    raw_job_types = request.args.getlist("job_type")
+    job_types = [jt for jt in raw_job_types if jt in ALLOWED_JOB_TYPE]
     if job_types:
         query = query.filter(Job.job_type.in_(job_types))
-    salary_min = request.args.get("salary_min", type=int)
-    salary_max = request.args.get("salary_max", type=int)
+
+    # ── Strict numeric salary validation ──────────────────────────────────────
+    salary_min_raw = (request.args.get("salary_min") or "").strip()
+    salary_max_raw = (request.args.get("salary_max") or "").strip()
+
+    salary_min = None
+    if salary_min_raw.isdigit():
+        val = int(salary_min_raw)
+        if 0 <= val <= 1000:
+            salary_min = val
+
+    salary_max = None
+    if salary_max_raw.isdigit():
+        val = int(salary_max_raw)
+        if 0 <= val <= 1000:
+            salary_max = val
+
+    if salary_min is not None and salary_max is not None and salary_min > salary_max:
+        salary_min, salary_max = salary_max, salary_min
+
     if salary_min is not None:
         query = query.filter(Job.salary_max >= salary_min)
     if salary_max is not None:
         query = query.filter(Job.salary_min <= salary_max)
 
+    clean_filters = {
+        "q": keyword,
+        "experience": levels,
+        "work_mode": modes,
+        "job_type": job_types,
+        "salary_min": salary_min,
+        "salary_max": salary_max,
+    }
+
     # ── DB-level pagination: only PER_PAGE rows fetched ───────────────────────
     pagination = query.order_by(Job.created_at.desc()).paginate(
         page=page, per_page=PER_PAGE, error_out=False
     )
-    page_jobs = pagination.items   # exactly ≤10 Job objects
+    page_jobs = pagination.items
 
     # Clamp page to last valid page when requested page exceeds total
     if page > pagination.pages and pagination.pages > 0:
@@ -141,6 +184,7 @@ def jobs():
         match_explanations=match_explanations,
         pagination=pagination,
         current_page=page,
+        clean_filters=clean_filters,
     )
 
 

@@ -168,6 +168,56 @@ def create_app(config_name=None):
         db.session.rollback()
         if _is_json_request():
             return jsonify({"status": "error", "error": "Internal Server Error", "message": "An unexpected error occurred. No diagnostic details leaked."}), 500
-        return render_template("errors/500.html"), 500
+    # --- Security Headers & Cache-Control Enforcement ---
+    @app.after_request
+    def set_security_and_cache_headers(response):
+        # 1. Core Security Headers
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+
+        # Content-Security-Policy
+        csp_directives = [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
+            "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:",
+            "img-src 'self' data: https: blob:",
+            "connect-src 'self' https://generativelanguage.googleapis.com https://api.groq.com",
+            "frame-ancestors 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+        ]
+        response.headers["Content-Security-Policy"] = "; ".join(csp_directives)
+
+        # 2. Cache-Control
+        if request.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            from flask_login import current_user
+            is_auth = False
+            try:
+                is_auth = bool(current_user and current_user.is_authenticated)
+            except Exception:
+                is_auth = False
+
+            is_sensitive_path = (
+                request.path.startswith("/candidate")
+                or request.path.startswith("/recruiter")
+                or request.path.startswith("/admin")
+                or request.path.startswith("/auth")
+                or request.path.startswith("/api")
+            )
+
+            if is_auth or is_sensitive_path or "Set-Cookie" in response.headers:
+                response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
+                response.headers["Pragma"] = "no-cache"
+                response.headers["Expires"] = "0"
+            else:
+                response.headers["Cache-Control"] = "no-cache, must-revalidate, max-age=0, private"
+
+        return response
 
     return app

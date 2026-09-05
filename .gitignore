@@ -57,3 +57,5 @@ htmlcov/
 logs/
 
 zentra-local-backup.dump
+strix_runs/
+
