@@ -22,38 +22,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-<style>
-  body { font-family: 'Inter', system-ui, sans-serif; }
-  /* Sleek Minimalist Scrollbars */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(99, 102, 241, 0.25) transparent;
-  }
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 9999px;
-    transition: background 0.2s ease;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: #818cf8;
-  }
-  .grid-bg {
-    background-image: linear-gradient(#E1E4FF 1px, transparent 1px), linear-gradient(90deg, #E1E4FF 1px, transparent 1px);
-    background-size: 40px 40px;
-  }
-  .fade-up { animation: fadeUp .6s ease-out both; }
-  .fade-up-d1 { animation-delay: .08s; }
-  .fade-up-d2 { animation-delay: .16s; }
-  .fade-up-d3 { animation-delay: .24s; }
-  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 {% block extra_head %}{% endblock %}
 <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
